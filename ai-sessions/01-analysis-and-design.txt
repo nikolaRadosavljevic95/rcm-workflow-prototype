@@ -1,0 +1,757 @@
+ ▐▛███▛█   Claude Code v2.1.328
+▝▜██████▀  Opus 5.5
+ ▝▝   ▝▝   C:\dev\rcm-workflow-prototype
+
+❯ I got a take-home exercise for a senior full-stack role. The client does
+  revenue cycle management (RCM) for nursing homes. The brief is
+  C:\dev\rcm-brief\exercise.pdf, read it before anything else. It stays outside
+  this repo because the repo is public, and don't use the client's name in
+  anything you write here. Call them the client.
+
+  Short version of the brief: every month the RCM team reviews outstanding
+  accounts across about 20 facilities. Each facility is assigned to one biller.
+  There are 5 billers, 4 supervisors and 2 managers. Billers report to
+  supervisors and supervisors report to managers. Today it all runs on
+  spreadsheets, email and conversations, so it is hard to see what needs
+  attention, who owns what, what is done, and how to move work when someone is
+  out. They want a simple internal app for this and there is no detailed spec
+  on purpose. They care more about what I prioritize and why than about how
+  much I build. Suggested time is around 90 minutes, I expect about 2 hours in
+  total. They also want to see how I work with AI, so this conversation will be
+  shared with them.
+
+  Context from the recruiter: their real internal app is Angular, ASP.NET Core
+  and SQL Server on IIS, with around 800 internal users.
+
+  This is session 1 of 3: analysis and design. No application code, no
+  scaffolding and no packages in this session. Session 2 is the build and
+  session 3 is a review.
+
+  Step 1. Answer in the chat, then stop.
+
+  1. Questions for the business. Group them by topic: the monthly cycle, roles
+  and ownership, reassignment and absences, what counts as done, data sources,
+  reporting, security and compliance. For each question give the assumption we
+  go with if nobody answers. Mark the 5 that change the design the most. One
+  thing looks odd to me: 5 billers and 4 supervisors. Treat it as a question,
+  not as something to explain away.
+
+  2. The monthly workflow. Who does what from the start of the month to month
+  end. A status model for the work items, with the allowed transitions and who
+  can make each one. How reassignment works, covering both a temporary cover
+  while someone is away and a permanent move of a facility to another biller.
+  What happens to items that are not finished at month end. What each role
+  needs to see on their first screen.
+
+  3. A first data model. Entities, the important fields and the relationships.
+  Include what we keep as history. Keep patient level data out of the prototype
+  and say why.
+
+  4. Two or three options for the first version. For each one: what a user can
+  do, what it leaves out, the main risk and a rough build time for session 2.
+  Tell me which one you would pick and why, in a few sentences.
+
+  Then stop and wait. I'll answer the questions I can and pick the option.
+
+  Step 2. After I decide, write these files:
+
+  - docs/01-questions-and-assumptions.md: the questions and assumptions,
+  updated with my answers.
+  - docs/02-workflow.md: the workflow, a Mermaid flowchart of the monthly cycle
+  and a Mermaid state diagram of the statuses.
+  - docs/03-data-model.md: the data model with a Mermaid ER diagram.
+  - docs/04-first-version.md: the chosen scope, what is out and why, and the
+  screens per role with a short text sketch of each.
+  - docs/05-technical-design.md: architecture, project structure, the main API
+  endpoints, how auth works in the prototype and in production, how it runs
+  locally, what changes for production (SQL Server, real auth, importing
+  balances from the billing system), and a short test plan with the edge cases
+  we know about.
+  - CLAUDE.md: a short brief for the build session. What we are building, the
+  decisions we made, conventions, commands, and what done looks like for
+  session 2.
+
+  Constraints and conventions:
+  - Stack: .NET 10 Web API, Angular and EF Core. Stay close to their stack.
+  - Whoever reviews it must be able to run it locally in a few minutes without
+  installing SQL Server. Propose how.
+  - Fake data only. No real names of people or facilities.
+  - Keep it simple. One API project with feature folders and one test project
+  is enough. My global settings mention Clean Architecture, MediatR, TanStack
+  Query and Tailwind. Ignore those for this repo unless we decide otherwise,
+  they are too much for a 2 hour prototype.
+  - Docs in plain English with short sentences. No emojis, no marketing words,
+  no em dashes. Each file should be readable in a few minutes.
+  - When a choice is a trade-off, say what we give up.
+  - Don't commit. I'll review the files and commit myself.
+
+  If anything in the brief is unclear or my constraints conflict, ask me before
+  you assume.
+
+  Searched for 2 patterns, read 1 file
+
+● No files written yet. Step 1 follows.
+
+  1. Questions for the business
+
+  The questions are numbered so you can answer by number. [Top 5] marks the ones
+  that change the design the most.
+
+  The monthly cycle
+
+  1. [Top 5] What is one unit of work: one facility for one month, one facility
+     and one payer for one month, or each resident account with a balance?
+     - Assume: one facility for one month. Follow-up on individual accounts
+       stays in the billing system.
+  2. When does a cycle start, which balances does it look at, and when is it
+     due?
+     - Assume: it opens on the 1st, uses balances as of the previous month-end
+       and is due on the 15th. It is named after the month the work happens in.
+  3. What happens to reviews that are not finished by month-end? Do they carry
+     over, or are they closed as missed?
+     - Assume: they close as Incomplete and stay in the history. Next month's
+       item for that facility shows "missed last month". A closed month is
+       read-only.
+  4. Who opens and closes a month? Can two months be open at the same time?
+     - Assume: a manager does both by hand. Only one month is open at a time.
+  5. Should the app send reminders (due soon, returned to you, cover starting)?
+     - Assume: no email in v1. The home screen does that job.
+
+  Roles and ownership
+
+  6. [Top 5] There are 5 billers and 4 supervisors, which is close to one
+     supervisor per biller. How is supervision organized? Do supervisors also
+     own facilities? Is supervision by person, by group of facilities or by
+     payer? Can a biller have two supervisors? Is a supervisor role vacant or
+     about to change?
+     - Assume: everyone reports to exactly one person. Supervisors can own
+       facilities. A review goes to the person the owner reports to. Nobody
+       approves their own work.
+  7. Does exactly one biller own each facility, or is some work split by payer
+     (for example Medicare and Medicaid)?
+     - Assume: one owner per facility.
+  8. [Top 5] Will anyone outside the RCM team use the app, for example facility
+     administrators or business office managers?
+     - Assume: no. Only internal RCM staff use it.
+  9. Are these the real team numbers or a simplified example?
+     - Assume: the real team may be up to 10 times bigger. The model must still
+       work at that size, and lists need filters. The prototype seeds the
+       numbers from the brief.
+
+  Reassignment and absences
+
+  10. Who records an absence and picks the cover? Who moves a facility
+      permanently?
+      - Assume: supervisors set covers for their own team. Managers can set
+        covers for anyone, and only managers move facilities.
+  11. Does a cover take over the work or act on behalf of the owner? Does the
+      same apply to approvers?
+      - Assume: the cover acts on behalf of the owner. The owner stays the owner
+        and the cover ends on its own. Approvers work the same way, and any
+        manager can also approve.
+  12. Can one person's work be split between several covers?
+      - Assume: one cover per absence. For exceptions, a supervisor reassigns
+        single items for the current month.
+  13. If a facility moves to another biller in the middle of a month, who
+      finishes this month's review?
+      - Assume: the manager decides at the time of the move. By default the open
+        item moves with the facility.
+  14. Is time off recorded anywhere else, such as an HR system or a shared
+      calendar?
+      - Assume: no integration. Absences are entered in the app.
+
+  What counts as done
+
+  15. [Top 5] What must be true for a facility review to count as done? Is there
+      a standard checklist? Does a supervisor sign off?
+      - Assume: the biller submits with a short summary and the supervisor
+        approves. No checklist in v1.
+  16. Can a supervisor send work back? Can approved work be reopened?
+      - Assume: yes to both. A return needs a comment. Reopening is allowed
+        while the month is open.
+  17. Are there escalation rules, for example balances over a set amount,
+      accounts older than 120 days, or Medicaid pending past a set time?
+      - Assume: no automatic rules in v1. Billers mention escalations in the
+        summary.
+
+  Data sources
+
+  18. [Top 5] Where do balances come from? Which billing system (for example
+      PointClickCare or MatrixCare), which report, and how often? Does v1 need
+      balances at all?
+      - Assume: v1 shows two numbers per facility per month, total AR and AR
+        over 90 days, from seed data. In production they are imported from the
+        month-end aged trial balance.
+  19. Can we see a redacted copy of today's spreadsheet and a typical email
+      thread?
+      - Assume: no, so we design from the brief. These would be the most useful
+        inputs we could get, so it is worth asking early.
+  20. Where do users, roles and reporting lines come from?
+      - Assume: they are kept in the app for v1 and synced from Active Directory
+        or HR later.
+  21. Is this a new app or a module in the existing internal app?
+      - Assume: a standalone prototype, built so it can move into the existing
+        app as one feature.
+
+  Reporting
+
+  22. What do managers report upward each month, and in what form (on screen or
+      Excel)?
+      - Assume: completion and on-time rates per month and per team. v1 shows
+        the current month on screen, and Excel export comes next.
+  23. Will the data be used to judge individual billers?
+      - Assume: not in v1. The history records who did each action, including
+        covers, so a later report can be fair.
+
+  Security and compliance
+
+  24. Will the app hold resident-level data, even by accident in comments?
+      - Assume: not by design, and the comment box says so. Production still
+        treats the app as possibly holding PHI, because people will type names
+        into free text.
+  25. How do users sign in to the existing internal app?
+      - Assume: Windows Authentication on IIS, with Active Directory groups
+        mapped to roles.
+  26. Who can see what?
+      - Assume: billers see their own items and the ones they cover. Supervisors
+        see their team. Managers see everything.
+  27. What must the audit trail cover, and how long are records kept?
+      - Assume: every change is stored with who made it and when. Nothing is
+        deleted. Compliance sets how long records are kept.
+
+  Why these five
+
+  - Q1, unit of work: it decides the main table, the data volume and whether the
+    app holds PHI.
+  - Q6, supervision: it decides who approves, who covers and what a supervisor
+    sees. If supervision follows facility groups or payers, the reviewer belongs
+    to the facility, not the person.
+  - Q8, outside users: a yes means a different sign-in model and data split per
+    facility.
+  - Q15, done: it decides whether we need a review step, a checklist or both.
+  - Q18, balances: it decides whether "needs attention" is driven by money or
+    only by dates and status, and whether there is an import to build.
+
+  2. The monthly workflow
+
+  Who does what
+
+  - Day 1, open. A manager opens the month. The app creates one item per active
+    facility. Each item is assigned to the facility's owner, is due on the 15th
+    and links to last month's item. Supervisors check this month's absences and
+    set covers.
+  - Days 1 to 15, work. Billers do the review in the billing system and record
+    it here: Start, Block with a reason, Submit with a summary, plus comments.
+    Supervisors approve or return submissions, set covers and move single items.
+    Managers watch the overview, chase blocked and overdue items and move
+    facilities.
+  - Day 16 to month-end, catch-up. Unfinished items are flagged Overdue. Work
+    goes on with the same actions.
+  - Month-end, close. A manager closes the month after a preview. Items not
+    approved become Incomplete, and the month becomes read-only.
+  - Next month. A facility's new item is flagged if it missed last month.
+
+  Statuses
+
+  ┌─────────────┬─────────────────────────────────────────────────┐
+  │   Status    │                     Meaning                     │
+  ├─────────────┼─────────────────────────────────────────────────┤
+  │ Not started │ Created when the month opens                    │
+  ├─────────────┼─────────────────────────────────────────────────┤
+  │ In progress │ The owner is working on it                      │
+  ├─────────────┼─────────────────────────────────────────────────┤
+  │ Blocked     │ The owner cannot continue. A reason is required │
+  ├─────────────┼─────────────────────────────────────────────────┤
+  │ Submitted   │ The owner says it is done. Waiting for review   │
+  ├─────────────┼─────────────────────────────────────────────────┤
+  │ Returned    │ The reviewer sent it back with a comment        │
+  ├─────────────┼─────────────────────────────────────────────────┤
+  │ Approved    │ Done for this month                             │
+  ├─────────────┼─────────────────────────────────────────────────┤
+  │ Incomplete  │ The month closed before approval. Final         │
+  └─────────────┴─────────────────────────────────────────────────┘
+
+  Transitions
+
+  ┌───────────────┬─────────┬────────────┬─────────────────┬──────────────┐
+  │     From      │ Action  │     To     │       Who       │     Rule     │
+  ├───────────────┼─────────┼────────────┼─────────────────┼──────────────┤
+  │ Not started   │ Start   │ In         │ Owner or cover  │              │
+  │               │         │ progress   │                 │              │
+  ├───────────────┼─────────┼────────────┼─────────────────┼──────────────┤
+  │ Not started,  │         │            │                 │ Reason       │
+  │ In progress,  │ Block   │ Blocked    │ Owner or cover  │ required     │
+  │ Returned      │         │            │                 │              │
+  ├───────────────┼─────────┼────────────┼─────────────────┼──────────────┤
+  │ Blocked       │ Unblock │ In         │ Owner or cover  │              │
+  │               │         │ progress   │                 │              │
+  ├───────────────┼─────────┼────────────┼─────────────────┼──────────────┤
+  │ Not started,  │         │            │                 │ Summary      │
+  │ In progress,  │ Submit  │ Submitted  │ Owner or cover  │ required     │
+  │ Returned      │         │            │                 │              │
+  ├───────────────┼─────────┼────────────┼─────────────────┼──────────────┤
+  │               │         │            │ Reviewer,       │ Not the      │
+  │ Submitted     │ Approve │ Approved   │ reviewer's      │ person who   │
+  │               │         │            │ cover, any      │ submitted    │
+  │               │         │            │ manager         │              │
+  ├───────────────┼─────────┼────────────┼─────────────────┼──────────────┤
+  │ Submitted     │ Return  │ Returned   │ Same as Approve │ Comment      │
+  │               │         │            │                 │ required     │
+  ├───────────────┼─────────┼────────────┼─────────────────┼──────────────┤
+  │ Approved      │ Reopen  │ In         │ Reviewer or any │ Reason       │
+  │               │         │ progress   │  manager        │ required     │
+  ├───────────────┼─────────┼────────────┼─────────────────┼──────────────┤
+  │ Any open      │ Close   │            │ Manager, for    │ Preview      │
+  │ status        │ month   │ Incomplete │ the whole month │ first        │
+  │               │         │            │  at once        │              │
+  └───────────────┴─────────┴────────────┴─────────────────┴──────────────┘
+
+  - The owner is the item's assignee. The cover is whoever covers the owner
+    today. The reviewer is the person the owner reports to. For an item a
+    manager owns, another manager reviews.
+  - Every action needs an open month and an item in the user's scope. Anyone who
+    can see an item can comment on it.
+  - A supervisor or manager who wants to do the work reassigns the item to
+    themselves first. That keeps "who did the work" clear.
+  - Self-approval example: a supervisor who covers their own biller can submit,
+    but their manager then approves.
+
+  Flags (computed, not statuses)
+
+  - Overdue: the due date has passed and the item is not Approved.
+  - Needs cover: the owner is away today and has no cover.
+  - Covered by X: someone else is acting for the owner today.
+  - Missed last month: last month's item ended Incomplete.
+
+  An item can be overdue in any status, so an Overdue status would hide the real
+  one.
+
+  Reassignment
+
+  Temporary cover
+  - A supervisor (for their own team) or a manager records an absence: who is
+    away, from when, until when, and who covers.
+  - During those dates, the owner's open items appear on the cover's home screen
+    tagged "Covering for X". The cover can do everything the owner can.
+  - Ownership does not change. After the end date the items are back with the
+    owner, so there is nothing to undo.
+  - The history shows both names, for example "Submitted by B, covering for A".
+  - Covers work for approvers too. A supervisor's cover can approve in their
+    place.
+  - Rules: the cover must be active and not away on those dates. Covers do not
+    chain: if the cover is also away, the items show Needs cover. One person
+    cannot have overlapping absences. An absence can end early. An absence can
+    be saved without a cover, and its items show Needs cover until someone is
+    picked.
+
+  One item, this month only
+  - A supervisor (own team) or a manager changes the owner of one open item. The
+    facility's owner stays the same, so next month starts as normal. This is
+    for splitting a long absence or balancing workload.
+
+  Permanent move
+  - A manager changes the facility's owner and gives a reason. The app ends the
+    old assignment and starts a new one.
+  - "Also move this month's open item" is on by default. Approved and Incomplete
+    items keep their original owner, so the history stays accurate.
+  - From the next month on, items go to the new owner.
+  - A user who still owns facilities or open items cannot be deactivated.
+
+  Month-end
+
+  - Closing marks every item that is not Approved as Incomplete, including
+    Submitted ones. The preview lists them, so the manager can ask supervisors
+    to finish their reviews first.
+  - The facility's next item links to the old one. The biller sees last month's
+    summary and comments there.
+  - A closed month is read-only. Work finished after the close does not count as
+    done for that month.
+  - Trade-off: we could keep unfinished items open across months instead. That
+    keeps the work in one place, but then nobody can say what was done in a
+    given month, and old items pile up. We give up late completion to keep each
+    month's record clean.
+
+  First screen per role
+
+  - Biller, "My work": my items plus the ones I cover ("Covering for A until Nov
+    21"). They are sorted by what needs me: Returned, Blocked, Overdue, Not
+    started, In progress. Submitted and Approved items go below. Each row shows
+    the facility, status, due date, flags, AR over 90, the last comment and the
+    next action. A line on top reads like "4 items, 1 returned, due in 3 days".
+  - Supervisor, "Team": items waiting for my review, oldest first, with Approve
+    and Return. A "needs attention" list: blocked, overdue, needs cover, missed
+    last month. One row per biller with open, submitted and approved counts, and
+    who is away. My own items, if I own facilities.
+  - Manager, "Overview": progress for the month across all facilities, with
+    counts per status and days to the due date. Exceptions sorted by AR over 90.
+    One row per team. A facility table with owner, reviewer, status, balances
+    and flags. Actions for the month and for facilities.
+  - Supervisors and managers can share one page with a different scope. That
+    saves build time, and we give up a layout tuned to each role.
+
+  3. First data model
+
+  Entities
+
+  - User: Id, Name, Email, Role (Biller, Supervisor, Manager), ReportsToId,
+    IsActive.
+  - Facility: Id, Code, Name, OwnerId, IsActive. An inactive facility gets no
+    new items.
+  - FacilityAssignment: Id, FacilityId, UserId, StartDate, EndDate (empty while
+    current), Reason, ChangedById, ChangedAt.
+  - ReviewCycle: Id, Year, Month, DueDate, Status (Open, Closed), OpenedById,
+    OpenedAt, ClosedById, ClosedAt.
+  - WorkItem (one facility, one month): Id, CycleId, FacilityId, AssigneeId,
+    Status, DueDate, BlockedReason, Summary, SubmittedById, SubmittedAt,
+    ApprovedById, ApprovedAt, PreviousItemId, ArTotal, ArOver90, Version.
+  - WorkItemEvent (append-only): Id, WorkItemId, Type (Created, StatusChanged,
+    Commented, Reassigned), FromStatus, ToStatus, FromUserId, ToUserId, ActorId,
+    OnBehalfOfId, Text, CreatedAt.
+  - Absence: Id, UserId, StartDate, EndDate, CoverUserId (optional), Note,
+    CreatedById, CreatedAt.
+
+  Relationships
+
+  - Each User reports to another User through ReportsToId, forming a tree:
+    biller, then supervisor, then manager.
+  - A Facility has one current owner and many FacilityAssignment rows.
+  - A ReviewCycle has many WorkItems, one per facility (a unique key on CycleId
+    and FacilityId).
+  - A WorkItem has one assignee and many events. It links to last month's item
+    for the same facility.
+  - An Absence links the user who is away and the optional cover.
+
+  Decisions and what we give up
+
+  - The reviewer is not stored. It comes from the owner's reporting line at the
+    moment someone acts, so pending reviews follow a change in reporting. We
+    give up a record of who the reviewer was meant to be. Who actually approved
+    is in the events.
+  - Facility.OwnerId plus FacilityAssignment give cheap reads of the current
+    owner and a full history. We give up a single source of truth, so one
+    handler writes both in one transaction.
+  - Balances live on WorkItem because they have the same grain (facility and
+    month). We give up keeping several snapshots per month.
+  - Comments are events. That gives one timeline per item in one table. We give
+    up a strict table per event type.
+  - Version is an optimistic concurrency token. If an owner and a cover act at
+    the same time, the second one gets a conflict instead of silently
+    overwriting the first.
+  - Times: timestamps are stored in UTC. Due dates and absences are plain dates
+    in one business time zone.
+  - Two kinds of record: the status fields on WorkItem hold the current state,
+    and the events are the permanent record.
+
+  History we keep
+
+  - Every status change, comment and reassignment, with who did it and on whose
+    behalf. These are never edited or deleted.
+  - Facility ownership over time.
+  - Closed months and their items, read-only.
+  - Absences and who covered them.
+  - Not kept in the prototype: who viewed what.
+
+  Why no patient-level data
+
+  - One line of account-level AR (resident, account number, payer, dates of
+    service, balance) is PHI under HIPAA. Account numbers are one of the 18
+    identifiers in the HIPAA Safe Harbor rule, so a list without names is still
+    PHI.
+  - PHI comes with duties a prototype cannot meet (access logging, encryption at
+    rest, hosting rules) and with breach risk. This repo is public.
+  - The problems in the brief are at facility level: owner, status, cover and
+    month-end. Account detail already lives in the billing system, so we point
+    to it instead of copying it.
+  - What we give up: the app cannot show which accounts inside a facility are
+    stuck. That is the likely next step, and it would make this a PHI system.
+  - Comments are where PHI could leak in. The comment box says "no resident
+    names or account numbers".
+
+  4. Options for the first version
+
+  Option A: monthly worklist
+
+  - What a user can do: sign in as any seeded user and see a home screen for
+    their role. Make every status transition, with its rules. Record absences
+    with a cover. Reassign a single item. Move a facility permanently. Open and
+    close a month with a preview. See each item's history.
+  - Leaves out: balance import, checklist, notifications, exports, admin screens
+    (users, facilities and reporting lines come from seed data) and
+    account-level data.
+  - Main risk: if "done" means more than a sign-off, this is only a status
+    tracker. "Needs attention" is driven by dates and status alone.
+  - Build: about 75 minutes, with tests.
+
+  Option B: A plus a review checklist
+
+  - Adds: a fixed list of steps per review. Examples: aging over 90 reviewed,
+    Medicaid pending list updated, credit balances checked, AR call held with
+    the facility. Submit needs the required steps ticked, and progress shows on
+    every screen.
+  - Leaves out: the same as A. The steps come from seed data and there is no
+    editor.
+  - Main risk: the steps are our guess. If they are wrong, people tick them
+    without reading, and they stop trusting the app.
+  - Build: about 95 minutes.
+
+  Option C: A plus a balance import
+
+  - Adds: CSV upload of month-end balances per facility and payer group.
+    Attention is ranked by money: AR over 90 and the change from last month.
+  - Leaves out: the checklist and the real export mapping.
+  - Main risk: we guess the file format, and validation eats the time. Numbers
+    that look real lead to questions we cannot answer.
+  - Build: about 120 minutes.
+
+  Not offered: an account-level worklist. It needs PHI and a real data feed. It
+  is the likely direction after v1.
+
+  My pick
+
+  I would pick A, plus two seeded numbers per item (total AR and AR over 90),
+  with no import. A covers all four problems the brief names: what needs
+  attention, who owns what, what is done, and how to move work when someone is
+  out. It fits in the session with tests. B and C depend on answers we do not
+  have yet (the real steps and the real export format). The two numbers take
+  minutes to add, let the overview sort by money and show where an import would
+  fit later. If session 2 runs long, cut reopen first, then single-item
+  reassignment.
+
+  Running locally (same for all options)
+
+  - The database is a SQLite file, created and seeded on first start. No SQL
+    Server and no Docker.
+  - Sign-in is a picker of seeded users. The API accepts the demo user header
+    only in Development.
+  - Two commands: dotnet run for the API and npm start for the Angular app. The
+    Angular dev server forwards API calls, so there is no CORS setup. You need
+    the .NET 10 SDK and Node.js LTS.
+  - What we give up: SQLite is not SQL Server, so decimal sorting, concurrency
+    tokens and collation behave differently. The EF model avoids
+    database-specific features, and switching to SQL Server is a config change.
+    SQL Server in Docker would match production but needs Docker and a large
+    download. LocalDB only runs on Windows and is a SQL Server install anyway.
+
+  Answer by question number and pick A, B or C, or a mix. I won't write any
+  files until you do.
+
+❯ I accept your assumptions. My decisions:
+
+  docs/01: cut it to the 10 most important questions. Each one gets your
+  assumption and one sentence on why it matters. The other questions don't go
+  in the repo.
+  v1 is Option A plus the two seeded numbers (total AR and AR over 90).
+  Reopen and single-item reassignment are not in v1. Put them in docs under
+  "What's next". If session 2 has time left after the tests, Reopen comes
+  first, then reassignment.
+  Database is SQLite, so a reviewer can run it without installing anything. EF
+  Core keeps the move to SQL Server open.
+  Store amounts as cents in a long, because SQLite doesn't sort decimal.
+
+  Now write docs/ and CLAUDE.md. Keep the workflow, data model and v1 scope
+  from your answer, updated with the decisions above.
+
+  Write it like an engineer's notes, not a report. Short sentences, no filler,
+  no intro or summary paragraphs, don't repeat the same point in two files. If
+  something is a decision, say what we chose and what we give up, in one or two
+  lines.
+
+  When you're done, list the files you wrote with one line each.
+
+  Called Microsoft Learn, ran 3 shell commands
+
+● Status: I checked the current EF Core docs on SQLite limits. Next I write the
+  six files.
+
+● Write(docs\01-questions-and-assumptions.md)
+  ⎿  Wrote 45 lines to docs\01-questions-and-assumptions.md
+
+● Write(docs\02-workflow.md)
+  ⎿  Wrote 135 lines to docs\02-workflow.md
+
+● Write(docs\03-data-model.md)
+  ⎿  Wrote 129 lines to docs\03-data-model.md
+
+● Write(docs\04-first-version.md)
+  ⎿  Wrote 139 lines to docs\04-first-version.md
+
+● Write(docs\05-technical-design.md)
+  ⎿  Wrote 149 lines to docs\05-technical-design.md
+
+● Write(CLAUDE.md)
+  ⎿  Wrote 82 lines to CLAUDE.md
+
+  Searched for 1 pattern, searched memories, wrote 3 memories
+
+● I wrote the docs and CLAUDE.md. Nothing is committed. I haven't rendered the
+  Mermaid diagrams, so check them in a viewer before you commit.
+
+  Files written:
+  - docs/01-questions-and-assumptions.md: the 10 most important questions, each
+    with its accepted assumption and one line on why it matters.
+  - docs/02-workflow.md: terms, a flowchart of the monthly cycle, the statuses
+    with a state diagram, transitions and who can make them, visibility, flags,
+    covers, permanent moves, and opening and closing a month.
+  - docs/03-data-model.md: ER diagram, notes per entity, decisions with what we
+    give up, the history we keep, and why there is no patient-level data.
+  - docs/04-first-version.md: v1 scope, what is out and why, a text sketch of
+    each screen per role, and "What's next" with Reopen first and single-item
+    reassignment second.
+  - docs/05-technical-design.md: architecture, project structure, API endpoints,
+    auth in the prototype and in production, how it runs locally, seed data,
+    what changes for production, and the test plan with known edge cases.
+  - CLAUDE.md: the brief for session 2. Hard rules, decisions, conventions,
+    planned packages, setup, commands and what done means.
+
+  Things to check before you commit:
+  - Decimal reason: the current EF Core docs say SQLite can sort decimal after
+    all. EF does it through a collation that only exists on its own connection.
+    Cents in a long is still the better choice, so the decision stands. 03 gives
+    the actual reason: exact values, and sorting and indexes work in any tool
+    and on SQL Server. DateTimeOffset really cannot be sorted in SQLite, so that
+    rule stays as it is.
+  - New cover rule: a cover must have the same or higher role than the person
+    who is away. This stops a biller from approving a peer's work when covering
+    for a supervisor. It is in 02 under Covers.
+  - Seed data: 05 now fixes the org chart and the demo scenarios. Casey is a
+    supervisor who owns two facilities, so the "manager approves" path can be
+    tested. The current month's due date is yesterday, so the demo opens in the
+    catch-up phase with Overdue flags.
+  - Angular version: I set it to Angular 22, the current version on npm. It
+    needs Node 24.15 or later; your machine has 24.21.
+
+  I also saved two private notes to my memory, outside the repo: your docs
+  style, and where the brief lives.
+
+❯ Before the commit, one cleanup pass. The repo is public, so CLAUDE.md should
+  only be about the project.
+
+  1. In CLAUDE.md, drop the lines about the client's name, transcripts and who
+  commits, and the "Overrides of global settings" section. Keep the conventions
+  that still apply under Conventions, without mentioning global settings.
+  2. "We give up" shows up 24 times across the docs. Vary it, or cut it where
+  the trade-off is obvious. Same meaning.
+  3. Add a build order for session 2 to CLAUDE.md: skeleton, seed and demo
+  auth; work items with transitions and tests; covers; closing and opening a
+  month; facility move. Stop after each step so I can review and commit. If
+  time runs short, cut from the end. Tests don't get cut.
+
+  Then show me git status and a short summary of what changed. Don't commit
+  yet.
+
+  Searched for 1 pattern
+
+● Update(docs\02-workflow.md)
+  ⎿  Added 2 lines, removed 2 lines
+
+● Update(docs\02-workflow.md)
+  ⎿  Added 1 line, removed 1 line
+
+● Update(docs\03-data-model.md)
+  ⎿  Added 9 lines, removed 9 lines
+
+● Update(docs\03-data-model.md)
+  ⎿  Added 1 line, removed 1 line
+● Update(docs\04-first-version.md)
+  ⎿  Added 2 lines, removed 2 lines
+
+● Update(docs\05-technical-design.md)
+  ⎿  Added 4 lines, removed 4 lines
+
+● Update(docs\05-technical-design.md)
+  ⎿  Added 1 line, removed 1 line
+
+● Update(docs\05-technical-design.md)
+  ⎿  Added 1 line, removed 1 line
+
+● Update(docs\05-technical-design.md)
+  ⎿  Added 1 line, removed 1 line
+
+● Update(docs\05-technical-design.md)
+  ⎿  Added 1 line, removed 1 line
+
+● Write(CLAUDE.md)
+  ⎿  Added 19 lines, removed 18 lines
+
+  Searched for 2 patterns, read 1 file, ran 1 shell command
+
+● Doing a last consistency pass: I'm removing the vendor names from Q5 and
+  varying a few repeated "so" clauses, then I'll show git status.
+
+● Update(docs\01-questions-and-assumptions.md)
+  ⎿  Added 1 line, removed 1 line
+
+● Update(docs\03-data-model.md)
+  ⎿  Added 1 line, removed 1 line
+
+● Update(docs\03-data-model.md)
+  ⎿  Added 1 line, removed 1 line
+
+● Update(docs\05-technical-design.md)
+  ⎿  Added 1 line, removed 1 line
+
+  Ran 1 shell command
+
+● Cleanup is done, and nothing is committed or staged. Both remaining git status
+  entries are untracked:
+
+  On branch main
+
+  No commits yet
+
+  Untracked files:
+          CLAUDE.md
+          docs/
+
+  CLAUDE.md
+  - I removed the lines about the client's name, transcripts and who commits,
+    and dropped the "Overrides of global settings" section.
+  - Under Conventions, the rules that still apply are now plain project rules:
+    - business rules return a Result instead of throwing;
+    - async/await for all I/O;
+    - strict TypeScript with no any;
+    - the pages/ and components/ folders;
+    - every business rule has a unit test.
+  - I also added "Handlers use AppDbContext directly, without repositories" and
+    "no CSS framework", so session 2 has a clear direction on both.
+  - The fake-data rule moved into Decisions, and package approval moved under
+    Packages.
+  - New Build order section, with the five steps in your order. The line about
+    Reopen and reassignment is now step 6, only if time is left.
+    - It stops after each step for review and a commit, cuts steps from the end
+      if time runs short, and never cuts tests.
+    - Step 1 now includes a README with run steps, so the README exists even if
+      later steps get cut.
+  - "Done" now asks the smoke test to pass only for the steps that were built.
+
+  "We give up"
+  - None left. I rewrote 21 of them in different wordings with the same meaning
+    ("The cost is", "Limit:", "Downside:", or folded into the sentence).
+  - I cut 3 where the trade-off is obvious: the int Version, enums stored as
+    text, and the allowedActions payload.
+  - The docs convention in CLAUDE.md now says "what it costs".
+
+  Also changed
+  - I removed the two billing system names from Q5 in docs/01, since they are
+    real company names.
+  - I broke up repeated "so" clauses in docs/03 and docs/05.
+
+❯ Commit it without the Co-Authored-By line and without the "Generated with
+  Claude Code" line. Subject: Add analysis and design notes. No body.
+
+  Committed 6405798, searched for 1 pattern, read 1 file, ran 1 shell command
+
+● The docs are committed as 6405798 on main, a root commit with subject "Add
+  analysis and design notes". There is no body and no attribution lines, and
+  nothing is pushed.
+
+  - Before committing: I read the full staged diff. Only CLAUDE.md and the five
+    docs/ files were staged; nothing local or generated went in.
+  - Hook: the pre-commit hook passed.
+  - Working tree: clean.
+
+  The commit metadata records your personal email as the author address, and
+  that becomes public when you push. If you'd rather publish a GitHub noreply
+  address, it's a quick fix now while the commit exists only locally: change the
+  address and amend the commit's author. I haven't changed anything; say if you
+  want me to do it.
