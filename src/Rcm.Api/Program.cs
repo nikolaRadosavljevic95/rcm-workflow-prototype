@@ -5,9 +5,11 @@ using Microsoft.EntityFrameworkCore;
 using Rcm.Api.Auth;
 using Rcm.Api.Data;
 using Rcm.Api.Domain;
+using Rcm.Api.Features.Cycles;
 using Rcm.Api.Features.Demo;
 using Rcm.Api.Features.Me;
 using Rcm.Api.Features.Users;
+using Rcm.Api.Features.WorkItems;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,6 +31,9 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton(services => new BusinessCalendar(services.GetRequiredService<TimeProvider>(), timeZone));
 
 builder.Services.AddProblemDetails();
+
+// Development otherwise throws on a malformed body, which the exception handler turns into a 500.
+builder.Services.Configure<RouteHandlerOptions>(options => options.ThrowOnBadRequest = false);
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
@@ -43,6 +48,13 @@ builder.Services.AddOpenApi();
 builder.Services.AddScoped<GetMeHandler>();
 builder.Services.AddScoped<GetUsersHandler>();
 builder.Services.AddScoped<ResetDemoDataHandler>();
+builder.Services.AddScoped<GetCyclesHandler>();
+builder.Services.AddScoped<WorkItemReader>();
+builder.Services.AddScoped<GetMyWorkHandler>();
+builder.Services.AddScoped<GetOverviewHandler>();
+builder.Services.AddScoped<GetWorkItemHandler>();
+builder.Services.AddScoped<TransitionWorkItemHandler>();
+builder.Services.AddScoped<AddCommentHandler>();
 
 var app = builder.Build();
 
@@ -62,6 +74,8 @@ app.MapOpenApi();
 app.MapDemoEndpoints();
 app.MapMeEndpoints();
 app.MapUsersEndpoints();
+app.MapCyclesEndpoints();
+app.MapWorkItemsEndpoints();
 
 app.Run();
 return 0;
