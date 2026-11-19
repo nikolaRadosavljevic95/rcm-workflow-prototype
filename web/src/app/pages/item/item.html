@@ -1,0 +1,78 @@
+<div class="title-row">
+  <h1>
+    @if (detail(); as d) {
+      {{ d.item.facility.name }}, {{ monthLabel(d.cycle) }}
+    } @else {
+      Work item
+    }
+  </h1>
+  <button type="button" class="secondary" (click)="back()">Back</button>
+</div>
+
+@if (message(); as text) {
+  <p class="message" role="alert">{{ text }}</p>
+}
+
+@if (detail(); as d) {
+  <dl class="facts">
+    <div><dt>Owner</dt><dd>{{ d.item.owner.name }}</dd></div>
+    <div><dt>Reviewer</dt><dd>{{ d.item.reviewer?.name ?? 'Any manager' }}</dd></div>
+    <div><dt>Due</dt><dd>{{ d.item.dueDate | date: 'MMM d' }}</dd></div>
+    <div><dt>Status</dt><dd><app-status-badge [status]="d.item.status" /></dd></div>
+    <div><dt>Flags</dt><dd><app-flag-list [flags]="d.item.flags" /></dd></div>
+  </dl>
+  <dl class="facts">
+    <div><dt>AR total</dt><dd>{{ d.item.arTotalCents | money }}</dd></div>
+    <div><dt>AR over 90</dt><dd>{{ d.item.arOver90Cents | money }}</dd></div>
+  </dl>
+
+  <p class="last-month">
+    @if (d.lastMonth; as last) {
+      Last month: {{ statusLabels[last.status] }}.
+      @if (last.summary) {
+        "{{ last.summary }}"
+      }
+    } @else {
+      Last month: no item.
+    }
+  </p>
+
+  @if (d.blockedReason) {
+    <p><strong>Blocked:</strong> {{ d.blockedReason }}</p>
+  }
+  @if (d.summary) {
+    <p><strong>Summary:</strong> {{ d.summary }}</p>
+  }
+
+  @if (d.cycle.status === 'Closed') {
+    <p class="empty">This month is closed. The item is read-only.</p>
+  } @else if (d.item.allowedActions.length > 0) {
+    <section class="actions">
+      <app-action-panel [actions]="d.item.allowedActions" [busy]="busy()" (act)="act($event)" />
+    </section>
+  }
+
+  @if (d.cycle.status === 'Open') {
+    <form class="comment" (submit)="$event.preventDefault(); addComment()">
+      <label>
+        Comment
+        <input #entry type="text" maxlength="2000" [value]="comment()" (input)="comment.set(entry.value)" />
+      </label>
+      <button type="submit" [disabled]="busy() || comment().trim() === ''">Add</button>
+      <p class="warning">Do not enter resident names or account numbers.</p>
+    </form>
+  }
+
+  <section>
+    <h2>History</h2>
+    <ol class="history">
+      @for (event of d.events; track event.id) {
+        <li>
+          <time [attr.datetime]="event.createdAt">{{ event.createdAt | date: 'MMM dd HH:mm' }}</time>
+          <span class="actor">{{ actorText(event) }}</span>
+          <span>{{ eventText(event) }}</span>
+        </li>
+      }
+    </ol>
+  </section>
+}

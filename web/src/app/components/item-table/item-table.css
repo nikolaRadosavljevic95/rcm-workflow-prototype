@@ -1,0 +1,23 @@
+tbody tr {
+  cursor: pointer;
+}
+
+tbody tr:hover {
+  background: var(--row-hover);
+}
+
+.sort {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-weight: inherit;
+}
+
+th[aria-sort='descending'] .sort::after {
+  content: ' \2193';
+}
+
+th[aria-sort='ascending'] .sort::after {
+  content: ' \2191';
+}

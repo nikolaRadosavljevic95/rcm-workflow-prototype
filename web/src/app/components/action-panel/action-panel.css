@@ -1,0 +1,11 @@
+.buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.prompt label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-width: 40rem;
+}

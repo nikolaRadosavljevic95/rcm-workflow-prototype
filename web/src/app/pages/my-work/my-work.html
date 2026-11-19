@@ -1,0 +1,19 @@
+<h1>My work</h1>
+
+@if (message(); as text) {
+  <p class="message" role="alert">{{ text }}</p>
+}
+
+@if (work(); as w) {
+  <app-month-picker [selected]="w.cycle" />
+
+  <section>
+    <h2>Needs action</h2>
+    <app-item-table [rows]="w.needsAction" />
+  </section>
+
+  <section>
+    <h2>Waiting or done</h2>
+    <app-item-table [rows]="w.waitingOrDone" />
+  </section>
+}

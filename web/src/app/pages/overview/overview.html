@@ -1,0 +1,124 @@
+<h1>Overview</h1>
+
+@if (message(); as text) {
+  <p class="message" role="alert">{{ text }}</p>
+}
+
+@if (overview(); as o) {
+  <app-month-picker [selected]="o.cycle" />
+
+  @if (o.progress; as progress) {
+    <section>
+      <h2>Progress</h2>
+      <ul class="progress">
+        @for (count of progress; track count.status) {
+          <li>{{ statusLabels[count.status] }} <strong>{{ count.count }}</strong></li>
+        }
+      </ul>
+    </section>
+  }
+
+  <section>
+    <h2>Waiting for my review ({{ o.waitingForMyReview.length }})</h2>
+    <app-item-table [rows]="o.waitingForMyReview" [showPeople]="true" />
+  </section>
+
+  <section>
+    <h2>Needs attention ({{ o.needsAttention.length }})</h2>
+    <app-item-table [rows]="o.needsAttention" [showPeople]="true" />
+  </section>
+
+  <section>
+    <h2>People</h2>
+    @if (o.people.length === 0) {
+      <p class="empty">No items.</p>
+    } @else {
+      <table>
+        <thead>
+          <tr>
+            <th>Person</th>
+            <th class="amount">Open</th>
+            <th class="amount">Submitted</th>
+            <th class="amount">Approved</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (person of o.people; track person.person.id) {
+            <tr>
+              <td>{{ person.person.name }}</td>
+              <td class="amount">{{ person.open }}</td>
+              <td class="amount">{{ person.submitted }}</td>
+              <td class="amount">{{ person.approved }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </section>
+
+  @if (o.teams; as teams) {
+    <section>
+      <h2>Teams</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Supervisor</th>
+            <th class="amount">Items</th>
+            <th class="amount">Approved</th>
+            <th class="amount">Submitted</th>
+            <th class="amount">Open</th>
+            <th class="amount">Overdue</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (team of teams; track team.supervisor.id) {
+            <tr>
+              <td>{{ team.supervisor.name }}</td>
+              <td class="amount">{{ team.items }}</td>
+              <td class="amount">{{ team.approved }}</td>
+              <td class="amount">{{ team.submitted }}</td>
+              <td class="amount">{{ team.open }}</td>
+              <td class="amount">{{ team.overdue }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </section>
+  }
+
+  <section>
+    <div class="all-items-header">
+      <h2>All items ({{ filteredItems().length }})</h2>
+      <div class="filters">
+        <label>
+          Status
+          <select #status (change)="filterStatus(status.value)">
+            <option value="">All</option>
+            @for (value of statuses(); track value) {
+              <option [value]="value">{{ statusLabels[value] }}</option>
+            }
+          </select>
+        </label>
+        <label>
+          Owner
+          <select #owner (change)="filterOwner(owner.value)">
+            <option value="">All</option>
+            @for (person of owners(); track person.id) {
+              <option [value]="person.id">{{ person.name }}</option>
+            }
+          </select>
+        </label>
+        <label>
+          Flag
+          <select #flag (change)="filterFlag(flag.value)">
+            <option value="">All</option>
+            @for (value of allFlags; track value) {
+              <option [value]="value">{{ flagLabels[value] }}</option>
+            }
+          </select>
+        </label>
+      </div>
+    </div>
+    <app-item-table [rows]="filteredItems()" [showPeople]="true" [showTotal]="true" />
+  </section>
+}

@@ -1,0 +1,19 @@
+@if (pending(); as action) {
+  <div class="prompt">
+    <label>
+      {{ prompt() }}
+      <textarea #entry rows="3" [value]="text()" (input)="text.set(entry.value)"></textarea>
+    </label>
+    <p class="warning">Do not enter resident names or account numbers.</p>
+    <div class="buttons">
+      <button type="button" [disabled]="busy() || text().trim() === ''" (click)="confirm()">{{ labels[action] }}</button>
+      <button type="button" class="secondary" [disabled]="busy()" (click)="cancel()">Cancel</button>
+    </div>
+  </div>
+} @else if (actions().length > 0) {
+  <div class="buttons">
+    @for (action of actions(); track action) {
+      <button type="button" [disabled]="busy()" (click)="choose(action)">{{ labels[action] }}</button>
+    }
+  </div>
+}

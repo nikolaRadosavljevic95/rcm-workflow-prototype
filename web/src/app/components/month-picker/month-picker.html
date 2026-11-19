@@ -1,0 +1,11 @@
+<div class="month-picker">
+  <label>
+    <span class="visually-hidden">Month</span>
+    <select #month (change)="pick(month.value)">
+      @for (cycle of cycles(); track cycle.id) {
+        <option [value]="cycle.id" [selected]="cycle.id === selected().id">{{ label(cycle) }}</option>
+      }
+    </select>
+  </label>
+  <span class="due">Due {{ selected().dueDate | date: 'MMM d' }}</span>
+</div>
