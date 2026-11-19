@@ -1,0 +1,6 @@
+@if (session.user(); as user) {
+  <app-header [user]="user" />
+}
+<main>
+  <router-outlet />
+</main>

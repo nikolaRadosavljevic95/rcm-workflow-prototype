@@ -1,0 +1,26 @@
+<section class="sign-in">
+  <header>
+    <h1>RCM Monthly Review</h1>
+    <span class="demo-note">Demo data only</span>
+  </header>
+
+  <h2>Sign in as</h2>
+  <dl>
+    @for (group of groups(); track group.label) {
+      <dt>{{ group.label }}</dt>
+      <dd>
+        @for (user of group.users; track user.id) {
+          <button type="button" [disabled]="busy()" (click)="signIn(user)">{{ user.name }}</button>
+        }
+      </dd>
+    }
+  </dl>
+
+  @if (message(); as text) {
+    <p class="message" role="status">{{ text }}</p>
+  }
+
+  <footer>
+    <button type="button" class="secondary" [disabled]="busy()" (click)="reset()">Reset demo data</button>
+  </footer>
+</section>

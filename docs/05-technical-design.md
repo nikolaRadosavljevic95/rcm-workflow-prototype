@@ -68,7 +68,7 @@ web/src/app/
 - The sign-in page lists users from `/api/demo/users` and keeps the choice in localStorage.
 - An Angular interceptor sends `X-Demo-User: <id>` on every call.
 - `DemoAuthHandler` loads that user, returns 401 for unknown or inactive ids, and issues claims: `user_id`, name, role.
-- The handler and `/api/demo/*` are registered only in the Development environment.
+- The handler and `/api/demo/*` are registered only in the Development environment. In any other environment the API exits at startup with a message, because without a sign-in every request would fail.
 - Authorization is real: role checks on endpoint groups, item checks in the rules. Swapping authentication does not touch them.
 - There is no real identity. Anyone can be anyone, which is fine for fake data.
 
@@ -97,7 +97,7 @@ All fake. First names only, numbered facilities.
 - Facilities F01 to F20, named "Facility 01" to "Facility 20". Alex owns F01 to F04, Blake F05 to F08, Charlie F09 to F12, Dana F13 to F15, Emery F16 to F18. Casey, a supervisor, owns F19 and F20.
 - Last month: closed. 18 Approved, 2 Incomplete (F07 and F14).
 - This month: open, due yesterday (or the 1st if today is the 1st), so the demo shows the catch-up phase. Every open status and Approved appear at least once. Alex has a Returned and a Blocked item. Charlie and Casey each have a Submitted item.
-- Absences, relative to today: Blake from 2 days ago to 4 days ahead, covered by Alex. Dana from today to 2 days ahead, no cover. Taylor from yesterday to 3 days ahead, covered by Sam.
+- Absences, relative to today: Blake from 2 days ago to 4 days ahead, covered by Alex. Dana from today to 2 days ahead, no cover. On the 1st her absence starts a day later: her seeded events all fall on that day, and with no cover she cannot act while away. Taylor from yesterday to 3 days ahead, covered by Sam.
 - Balances: fixed per facility, so every reset shows the same numbers. Total AR from $150,000 to $1,200,000. AR over 90 from 10% to 45% of the total.
 - Every seeded item has an event trail that matches its status.
 
@@ -120,6 +120,8 @@ All fake. First names only, numbered facilities.
   4. Casey: the seeded Submitted item has no Approve button. Quinn: approve it from Waiting for my review.
   5. Morgan: move a facility with its open item. The item history shows the move.
   6. Morgan: close the month after checking the preview, then open the next one. Facilities left unapproved show Missed last month.
+  7. Sign-in page: Reset demo data. The seeded month is back as it started.
+- **Checked by hand only**: demo reset (smoke step 7). It drops and recreates the database file, which the in-memory test database cannot do.
 - **Not tested in v1**: the Angular UI (it holds no rules), SQL Server, real sign-in.
 
 ### Edge cases
