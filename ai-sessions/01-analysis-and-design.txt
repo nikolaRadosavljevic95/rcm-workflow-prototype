@@ -2,6 +2,18 @@
 ▝▜██████▀  Opus 5.5
  ▝▝   ▝▝   C:\dev\rcm-workflow-prototype
 
+How to read this: lines that start with ❯ are my messages to Claude Code.
+Lines that start with ● are Claude's replies and actions. ⎿ marks a result, such as
+the option I picked or whether I approved a plan. File contents and diffs are left out,
+because the files are in the repo.
+
+My messages in this session (4):
+  1. I got a take-home exercise for a senior full-stack role. The client does
+  2. I accept your assumptions. My decisions:
+  3. Before the commit, one cleanup pass. The repo is public, so CLAUDE.md should
+  4. Commit it without the Co-Authored-By line and without the "Generated with
+
+==============================================================================
 ❯ I got a take-home exercise for a senior full-stack role. The client does
   revenue cycle management (RCM) for nursing homes. The brief is
   C:\dev\rcm-brief\exercise.pdf, read it before anything else. It stays outside
@@ -535,6 +547,7 @@
   Answer by question number and pick A, B or C, or a mix. I won't write any
   files until you do.
 
+==============================================================================
 ❯ I accept your assumptions. My decisions:
 
   docs/01: cut it to the 10 most important questions. Each one gets your
@@ -623,6 +636,7 @@
   I also saved two private notes to my memory, outside the repo: your docs
   style, and where the brief lives.
 
+==============================================================================
 ❯ Before the commit, one cleanup pass. The repo is public, so CLAUDE.md should
   only be about the project.
 
@@ -736,6 +750,7 @@
     real company names.
   - I broke up repeated "so" clauses in docs/03 and docs/05.
 
+==============================================================================
 ❯ Commit it without the Co-Authored-By line and without the "Generated with
   Claude Code" line. Subject: Add analysis and design notes. No body.
 
