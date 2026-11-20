@@ -97,6 +97,25 @@
     </section>
   }
 
+  @if (o.monthActions.canClose || o.monthActions.openNext) {
+    <section class="month-actions">
+      <h2>Actions</h2>
+      @if (o.monthActions.canClose) {
+        <button type="button" (click)="monthDialog.set('close')">Close month</button>
+      }
+      @if (o.monthActions.openNext) {
+        <button type="button" (click)="monthDialog.set('open')">Open next month</button>
+      }
+    </section>
+  }
+
+  @if (monthDialog() === 'close') {
+    <app-close-month-dialog [cycle]="o.cycle" (closed)="monthClosed($event)" (cancelled)="monthDialog.set(null)" />
+  }
+  @if (monthDialog() === 'open' && o.monthActions.openNext; as next) {
+    <app-open-month-dialog [next]="next" (opened)="monthOpened($event)" (cancelled)="monthDialog.set(null)" />
+  }
+
   <section>
     <div class="all-items-header">
       <h2>All items ({{ filteredItems().length }})</h2>

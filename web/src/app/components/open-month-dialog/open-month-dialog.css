@@ -1,0 +1,7 @@
+.due {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: fit-content;
+  color: var(--muted);
+}

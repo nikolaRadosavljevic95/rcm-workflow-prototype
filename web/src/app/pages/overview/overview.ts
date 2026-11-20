@@ -1,7 +1,11 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { CloseMonthDialog } from '../../components/close-month-dialog/close-month-dialog';
 import { ItemTable } from '../../components/item-table/item-table';
 import { MonthPicker, cycleIdFrom } from '../../components/month-picker/month-picker';
+import { OpenMonthDialog } from '../../components/open-month-dialog/open-month-dialog';
+import { Cycle } from '../../models/cycle';
 import { flagLabels, statusLabels } from '../../models/labels';
 import { ItemFlag, Overview, PersonRef, WorkItemStatus } from '../../models/work-item';
 import { problemMessage } from '../../services/problem';
@@ -11,12 +15,14 @@ const allFlags: readonly ItemFlag[] = ['Overdue', 'NeedsCover', 'Covered', 'Miss
 
 @Component({
   selector: 'app-overview',
-  imports: [DatePipe, ItemTable, MonthPicker],
+  imports: [CloseMonthDialog, DatePipe, ItemTable, MonthPicker, OpenMonthDialog],
   templateUrl: './overview.html',
   styleUrl: './overview.css',
 })
 export class OverviewPage {
   private readonly api = inject(WorkItemsApi);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
   // Bound from the "cycle" query parameter.
   readonly cycle = input<string>();
@@ -26,6 +32,7 @@ export class OverviewPage {
   protected readonly statusLabels = statusLabels;
   protected readonly flagLabels = flagLabels;
   protected readonly allFlags = allFlags;
+  protected readonly monthDialog = signal<'close' | 'open' | null>(null);
 
   // The All items filters only narrow what the API already sent.
   protected readonly statusFilter = signal<WorkItemStatus | null>(null);
@@ -63,6 +70,17 @@ export class OverviewPage {
 
   protected filterFlag(value: string): void {
     this.flagFilter.set(allFlags.find((flag) => flag === value) ?? null);
+  }
+
+  protected async monthClosed(cycle: Cycle): Promise<void> {
+    this.monthDialog.set(null);
+    await this.load(cycle.id);
+  }
+
+  // The new month goes into the URL, which reloads the page through the cycle input.
+  protected async monthOpened(cycle: Cycle): Promise<void> {
+    this.monthDialog.set(null);
+    await this.router.navigate([], { relativeTo: this.route, queryParams: { cycle: cycle.id } });
   }
 
   private async load(cycleId: number | null): Promise<void> {

@@ -1,0 +1,20 @@
+<dialog #dialog aria-labelledby="open-month-title" (cancel)="dismiss($event)">
+  <form (submit)="$event.preventDefault(); confirm()">
+    <h2 id="open-month-title">{{ title() }}</h2>
+    <p>Every active facility gets a Not started item for its owner.</p>
+
+    <label class="due">
+      Due date
+      <input #due type="date" required [value]="dueDate()" (input)="dueDate.set(due.value)" />
+    </label>
+
+    @if (error(); as text) {
+      <p class="message" role="alert">{{ text }}</p>
+    }
+
+    <div class="dialog-buttons">
+      <button type="button" class="secondary" [disabled]="busy()" (click)="cancelled.emit()">Cancel</button>
+      <button type="submit" [disabled]="busy()">Open month</button>
+    </div>
+  </form>
+</dialog>

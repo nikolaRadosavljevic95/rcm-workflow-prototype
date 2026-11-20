@@ -1,4 +1,4 @@
-import { Cycle } from './cycle';
+import { Cycle, MonthActions } from './cycle';
 
 export type WorkItemStatus =
   | 'NotStarted'
@@ -84,6 +84,7 @@ export interface Overview {
   items: WorkItemRow[];
   progress: StatusCount[] | null;
   teams: TeamSummary[] | null;
+  monthActions: MonthActions;
 }
 
 export interface WorkItemEvent {

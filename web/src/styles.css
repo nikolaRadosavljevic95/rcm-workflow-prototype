@@ -135,3 +135,27 @@ th {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+dialog {
+  width: min(36rem, calc(100vw - 2rem));
+  padding: 1.25rem 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+dialog::backdrop {
+  background: rgb(31 35 40 / 40%);
+}
+
+dialog h2 {
+  margin-top: 0;
+}
+
+.dialog-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}

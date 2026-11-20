@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, inject, input, signal } from '@angular/core';
+import { Component, effect, inject, input, signal, untracked } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Cycle } from '../../models/cycle';
 import { monthLabel } from '../../models/labels';
@@ -25,8 +25,12 @@ export class MonthPicker {
   readonly selected = input.required<Cycle>();
   protected readonly cycles = signal<Cycle[]>([]);
 
+  // Reloads whenever the month shown changes, so a month opened or closed here shows up at once.
   constructor() {
-    void this.loadCycles();
+    effect(() => {
+      this.selected();
+      untracked(() => void this.loadCycles());
+    });
   }
 
   protected label(cycle: Cycle): string {
