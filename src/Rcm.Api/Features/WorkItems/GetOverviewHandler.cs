@@ -25,6 +25,8 @@ public sealed class GetOverviewHandler(WorkItemReader reader, RequestContextLoad
             .Select(item => WorkItemReader.ToRow(item, context))
             .ToList();
 
+        var cycles = await reader.LoadCycleSnapshotsAsync(ct);
+        var monthActions = CycleRules.ActionsFor(user.Role, cycle.Snapshot(), cycles, context.Today);
         var isManager = user.Role == Role.Manager;
         return new OverviewResponse(
             CycleResponse.From(cycle),
@@ -33,7 +35,8 @@ public sealed class GetOverviewHandler(WorkItemReader reader, RequestContextLoad
             People(rows, context),
             WorkItemReader.ByArOver90(rows),
             isManager ? Progress(rows) : null,
-            isManager ? Teams(rows) : null);
+            isManager ? Teams(rows) : null,
+            MonthActionsResponse.From(monthActions));
     }
 
     private static List<PersonSummary> People(IReadOnlyList<WorkItemRow> rows, RequestContext context) =>

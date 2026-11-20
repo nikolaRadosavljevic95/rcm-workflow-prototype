@@ -36,6 +36,12 @@ public sealed class WorkItemReader(AppDbContext db)
             ?? cycles.OrderByDescending(c => c.Year).ThenByDescending(c => c.Month).FirstOrDefault();
     }
 
+    public async Task<List<CycleSnapshot>> LoadCycleSnapshotsAsync(CancellationToken ct) =>
+        await db.ReviewCycles
+            .AsNoTracking()
+            .Select(c => new CycleSnapshot(c.Year, c.Month, c.Status))
+            .ToListAsync(ct);
+
     public async Task<List<WorkItem>> LoadItemsAsync(int cycleId, CancellationToken ct) =>
         await db.WorkItems
             .AsNoTracking()

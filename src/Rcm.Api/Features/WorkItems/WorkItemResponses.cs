@@ -45,7 +45,8 @@ public sealed record OverviewResponse(
     IReadOnlyList<PersonSummary> People,
     IReadOnlyList<WorkItemRow> Items,
     IReadOnlyList<StatusCount>? Progress,
-    IReadOnlyList<TeamSummary>? Teams);
+    IReadOnlyList<TeamSummary>? Teams,
+    MonthActionsResponse MonthActions);
 
 public sealed record EventResponse(
     int Id,

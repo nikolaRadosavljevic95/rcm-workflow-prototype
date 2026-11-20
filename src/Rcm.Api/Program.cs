@@ -52,6 +52,8 @@ builder.Services.AddScoped<GetMeHandler>();
 builder.Services.AddScoped<GetUsersHandler>();
 builder.Services.AddScoped<ResetDemoDataHandler>();
 builder.Services.AddScoped<GetCyclesHandler>();
+builder.Services.AddScoped<OpenCycleHandler>();
+builder.Services.AddScoped<CloseCycleHandler>();
 builder.Services.AddScoped<WorkItemReader>();
 builder.Services.AddScoped<GetMyWorkHandler>();
 builder.Services.AddScoped<GetOverviewHandler>();

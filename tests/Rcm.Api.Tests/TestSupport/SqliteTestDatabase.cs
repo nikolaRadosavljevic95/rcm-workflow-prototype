@@ -1,5 +1,6 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Rcm.Api.Data;
 using Rcm.Api.Domain;
 
@@ -43,6 +44,25 @@ public sealed class SqliteTestDatabase : IAsyncDisposable
     }
 
     public AppDbContext CreateContext() => new(options);
+
+    // Runs a write from another context just before this context saves, to stand in for a concurrent request.
+    public AppDbContext CreateContextRacing(Func<AppDbContext, Task> otherWrite) =>
+        new(new DbContextOptionsBuilder<AppDbContext>(options)
+            .AddInterceptors(new RaceInterceptor(this, otherWrite))
+            .Options);
+
+    private sealed class RaceInterceptor(SqliteTestDatabase database, Func<AppDbContext, Task> otherWrite)
+        : SaveChangesInterceptor
+    {
+        public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(
+            DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        {
+            await using var other = database.CreateContext();
+            await otherWrite(other);
+            await other.SaveChangesAsync(cancellationToken);
+            return result;
+        }
+    }
 
     public async ValueTask DisposeAsync() => await connection.DisposeAsync();
 }

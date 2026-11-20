@@ -13,4 +13,6 @@ public class ReviewCycle
     public int? ClosedById { get; set; }
     public User? ClosedBy { get; set; }
     public DateTime? ClosedAt { get; set; }
+
+    public CycleSnapshot Snapshot() => new(Year, Month, Status);
 }

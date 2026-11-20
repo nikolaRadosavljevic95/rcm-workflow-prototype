@@ -61,6 +61,7 @@ web/src/app/
 | PUT | `/api/facilities/{id}/owner` | manager | Body: `newOwnerId`, `reason`, `moveOpenItem` |
 
 - A row carries owner, reviewer, team (the owner's supervisor, or the owner if a supervisor), status, flags, balances in cents, `allowedActions`, `awaitingMyReview` and `version`.
+- The overview also carries `monthActions`: whether the manager can close the month shown, and which month opens next with its default due date when none is open.
 - `cycleId` defaults to the open month, or the latest month if none is open.
 - Errors are ProblemDetails: 400 rule or validation, 401 not signed in, 403 not allowed, 404 missing or not visible to the user, 409 stale `version`.
 
