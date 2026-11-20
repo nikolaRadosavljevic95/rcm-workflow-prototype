@@ -3,11 +3,10 @@ using Rcm.Api.Features.Cycles;
 
 namespace Rcm.Api.Features.WorkItems;
 
-public sealed record PersonRef(int Id, string Name);
-
 public sealed record FacilityRef(int Id, string Code, string Name);
 
 // Reviewer is empty when the owner reports to no one, which means any other manager reviews.
+// CoveredBy is who covers the owner today. CoveringFor is the owner, when that cover is the viewer.
 public sealed record WorkItemRow(
     int Id,
     FacilityRef Facility,
@@ -17,6 +16,8 @@ public sealed record WorkItemRow(
     WorkItemStatus Status,
     DateOnly DueDate,
     IReadOnlyList<ItemFlag> Flags,
+    PersonRef? CoveredBy,
+    PersonRef? CoveringFor,
     long? ArTotalCents,
     long? ArOver90Cents,
     IReadOnlyList<WorkflowAction> AllowedActions,
@@ -28,7 +29,9 @@ public sealed record MyWorkResponse(
     IReadOnlyList<WorkItemRow> NeedsAction,
     IReadOnlyList<WorkItemRow> WaitingOrDone);
 
-public sealed record PersonSummary(PersonRef Person, int Open, int Submitted, int Approved);
+// AwayUntil and Cover describe today: empty when the person is in.
+public sealed record PersonSummary(
+    PersonRef Person, int Open, int Submitted, int Approved, DateOnly? AwayUntil, PersonRef? Cover);
 
 public sealed record StatusCount(WorkItemStatus Status, int Count);
 

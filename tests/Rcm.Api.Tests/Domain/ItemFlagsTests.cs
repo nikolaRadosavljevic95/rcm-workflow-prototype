@@ -58,5 +58,33 @@ public class ItemFlagsTests
         Assert.Empty(ItemFlags.For(item, DueDate));
     }
 
+    [Fact]
+    public void For_OwnerAwayWithoutCover_IsNeedsCover()
+    {
+        Assert.Equal([ItemFlag.NeedsCover], ItemFlags.For(Item(WorkItemStatus.InProgress), DueDate, CoverState.NeedsCover));
+    }
+
+    [Fact]
+    public void For_OwnerCovered_IsCovered()
+    {
+        Assert.Equal([ItemFlag.Covered], ItemFlags.For(Item(WorkItemStatus.Blocked), DueDate, CoverState.CoveredBy(TestOrg.Blake)));
+    }
+
+    [Theory]
+    [InlineData(WorkItemStatus.Approved)]
+    [InlineData(WorkItemStatus.Incomplete)]
+    public void For_FinishedItemOwnerAway_HasNoCoverFlag(WorkItemStatus status)
+    {
+        Assert.Empty(ItemFlags.For(Item(status), DueDate, CoverState.NeedsCover));
+    }
+
+    [Fact]
+    public void For_ClosedMonthOwnerAway_HasNoCoverFlag()
+    {
+        var item = Item(WorkItemStatus.InProgress) with { MonthOpen = false };
+
+        Assert.Empty(ItemFlags.For(item, DueDate, CoverState.NeedsCover));
+    }
+
     private static ItemSnapshot Item(WorkItemStatus status) => new(status, TestOrg.Alex, null, true, DueDate);
 }

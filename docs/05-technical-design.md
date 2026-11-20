@@ -9,6 +9,7 @@
 - **The API returns flags and `allowedActions` per item.** The UI shows only allowed actions and holds no rules.
 - **Lists computed in memory.** A month has one row per facility, so the API loads it and computes flags, actions and order in C#. No database paging, which is fine up to a few hundred facilities.
 - **Result pattern.** Handlers return `Result` and endpoints map it to HTTP. No exceptions for business rules.
+- **Absences keep only their current state.** An edit overwrites the dates, cover and note, and only the first save records who and when, so later changes to an absence are not traced yet.
 - **Event times in the viewer's time zone.** The API sends UTC and the browser formats it; due dates and "today" still follow the business time zone. A viewer outside New York reads the history on their own clock.
 
 ## Project structure

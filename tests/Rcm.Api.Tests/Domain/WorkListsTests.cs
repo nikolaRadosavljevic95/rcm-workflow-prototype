@@ -27,6 +27,7 @@ public class WorkListsTests
 
     [Theory]
     [InlineData(ItemFlag.Overdue)]
+    [InlineData(ItemFlag.NeedsCover)]
     [InlineData(ItemFlag.MissedLastMonth)]
     public void NeedsAttention_FlaggedItem_IsTrue(ItemFlag flag)
     {
@@ -38,5 +39,6 @@ public class WorkListsTests
     {
         Assert.False(WorkLists.NeedsAttention(WorkItemStatus.InProgress, []));
         Assert.False(WorkLists.NeedsAttention(WorkItemStatus.Submitted, []));
+        Assert.False(WorkLists.NeedsAttention(WorkItemStatus.InProgress, [ItemFlag.Covered]));
     }
 }

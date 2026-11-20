@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using Rcm.Api.Auth;
 using Rcm.Api.Data;
 using Rcm.Api.Domain;
+using Rcm.Api.Features;
+using Rcm.Api.Features.Absences;
 using Rcm.Api.Features.Cycles;
 using Rcm.Api.Features.Demo;
 using Rcm.Api.Features.Me;
@@ -45,6 +47,7 @@ builder.Services
     .AddScheme<AuthenticationSchemeOptions, DemoAuthHandler>(DemoAuthHandler.SchemeName, null);
 builder.Services.AddOpenApi();
 
+builder.Services.AddScoped<RequestContextLoader>();
 builder.Services.AddScoped<GetMeHandler>();
 builder.Services.AddScoped<GetUsersHandler>();
 builder.Services.AddScoped<ResetDemoDataHandler>();
@@ -55,6 +58,10 @@ builder.Services.AddScoped<GetOverviewHandler>();
 builder.Services.AddScoped<GetWorkItemHandler>();
 builder.Services.AddScoped<TransitionWorkItemHandler>();
 builder.Services.AddScoped<AddCommentHandler>();
+builder.Services.AddScoped<GetAbsencesHandler>();
+builder.Services.AddScoped<CreateAbsenceHandler>();
+builder.Services.AddScoped<UpdateAbsenceHandler>();
+builder.Services.AddScoped<DeleteAbsenceHandler>();
 
 var app = builder.Build();
 
@@ -76,6 +83,7 @@ app.MapMeEndpoints();
 app.MapUsersEndpoints();
 app.MapCyclesEndpoints();
 app.MapWorkItemsEndpoints();
+app.MapAbsencesEndpoints();
 
 app.Run();
 return 0;

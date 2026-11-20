@@ -4,7 +4,7 @@ using Rcm.Api.Features.Cycles;
 
 namespace Rcm.Api.Features.WorkItems;
 
-public sealed class GetOverviewHandler(WorkItemReader reader)
+public sealed class GetOverviewHandler(WorkItemReader reader, RequestContextLoader contexts)
 {
     public async Task<Result<OverviewResponse>> HandleAsync(CurrentUser user, int? cycleId, CancellationToken ct)
     {
@@ -19,21 +19,10 @@ public sealed class GetOverviewHandler(WorkItemReader reader)
             return Error.NotFound("Month not found.");
         }
 
-        var org = await reader.LoadOrgAsync(ct);
-        var actor = WorkItemReader.ActorFor(user);
+        var context = await contexts.LoadAsync(user, ct);
         var rows = (await reader.LoadItemsAsync(cycle.Id, ct))
-            .Where(item => VisibilityRules.CanSee(actor, item.AssigneeId, org))
-            .Select(item => reader.ToRow(item, actor, org))
-            .ToList();
-
-        var people = rows
-            .GroupBy(r => r.Owner)
-            .Select(g => new PersonSummary(
-                g.Key,
-                g.Count(r => WorkLists.NeedsAction(r.Status)),
-                g.Count(r => r.Status == WorkItemStatus.Submitted),
-                g.Count(r => r.Status == WorkItemStatus.Approved)))
-            .OrderBy(p => p.Person.Name, StringComparer.Ordinal)
+            .Where(item => VisibilityRules.CanSee(context.Actor, item.AssigneeId, context.Org))
+            .Select(item => WorkItemReader.ToRow(item, context))
             .ToList();
 
         var isManager = user.Role == Role.Manager;
@@ -41,11 +30,24 @@ public sealed class GetOverviewHandler(WorkItemReader reader)
             CycleResponse.From(cycle),
             WorkItemReader.ByArOver90(rows.Where(r => r.AwaitingMyReview)),
             WorkItemReader.ByArOver90(rows.Where(r => WorkLists.NeedsAttention(r.Status, r.Flags))),
-            people,
+            People(rows, context),
             WorkItemReader.ByArOver90(rows),
             isManager ? Progress(rows) : null,
             isManager ? Teams(rows) : null);
     }
+
+    private static List<PersonSummary> People(IReadOnlyList<WorkItemRow> rows, RequestContext context) =>
+        rows
+            .GroupBy(r => r.Owner)
+            .Select(g => new PersonSummary(
+                g.Key,
+                g.Count(r => WorkLists.NeedsAction(r.Status)),
+                g.Count(r => r.Status == WorkItemStatus.Submitted),
+                g.Count(r => r.Status == WorkItemStatus.Approved),
+                CoverRules.AbsenceOn(g.Key.Id, context.Today, context.AbsencesToday)?.EndDate,
+                context.OptionalPerson(context.CoverOf(g.Key.Id).CoverId)))
+            .OrderBy(p => p.Person.Name, StringComparer.Ordinal)
+            .ToList();
 
     private static List<StatusCount> Progress(IReadOnlyList<WorkItemRow> rows) =>
         WorkLists.ProgressOrder

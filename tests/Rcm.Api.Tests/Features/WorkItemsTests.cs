@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Rcm.Api.Auth;
 using Rcm.Api.Data;
 using Rcm.Api.Domain;
+using Rcm.Api.Features;
 using Rcm.Api.Features.WorkItems;
 using Rcm.Api.Tests.TestSupport;
 
@@ -17,17 +18,36 @@ public class WorkItemsTests
     private static readonly CurrentUser Alex = new(SeedData.Alex, "Alex", Role.Biller);
 
     [Fact]
-    public async Task GetMyWork_Biller_GroupsOwnItemsByArOver90()
+    public async Task GetMyWork_Biller_GroupsOwnAndCoveredItemsByArOver90()
     {
         await using var database = await SqliteTestDatabase.CreateSeededAsync(SqliteTestDatabase.MidMonth);
         await using var db = database.CreateContext();
 
-        var result = await new GetMyWorkHandler(Reader(db, database)).HandleAsync(Alex, null, CancellationToken.None);
+        var result = await new GetMyWorkHandler(Reader(db), Contexts(db, database)).HandleAsync(Alex, null, CancellationToken.None);
 
         Assert.Equal(CycleStatus.Open, result.Value.Cycle.Status);
-        Assert.Equal(["F03", "F02", "F01"], result.Value.NeedsAction.Select(r => r.Facility.Code));
-        Assert.Equal(["F04"], result.Value.WaitingOrDone.Select(r => r.Facility.Code));
+        Assert.Equal(["F03", "F07", "F02", "F01"], result.Value.NeedsAction.Select(r => r.Facility.Code));
+        Assert.Equal(["F08", "F05", "F04", "F06"], result.Value.WaitingOrDone.Select(r => r.Facility.Code));
         Assert.All(result.Value.NeedsAction, r => Assert.Contains(ItemFlag.Overdue, r.Flags));
+    }
+
+    [Fact]
+    public async Task GetMyWork_CoveredOwnersItem_TaggedCoveringForOwner()
+    {
+        await using var database = await SqliteTestDatabase.CreateSeededAsync(SqliteTestDatabase.MidMonth);
+        await using var db = database.CreateContext();
+
+        var result = await new GetMyWorkHandler(Reader(db), Contexts(db, database)).HandleAsync(Alex, null, CancellationToken.None);
+
+        var blakes = result.Value.NeedsAction.Single(r => r.Facility.Code == "F07");
+        Assert.Equal("Blake", blakes.CoveringFor?.Name);
+        Assert.Equal("Alex", blakes.CoveredBy?.Name);
+        Assert.Contains(ItemFlag.Covered, blakes.Flags);
+        Assert.Equal([WorkflowAction.Start, WorkflowAction.Block, WorkflowAction.Submit], blakes.AllowedActions);
+        var approved = result.Value.WaitingOrDone.Single(r => r.Facility.Code == "F05");
+        Assert.Null(approved.CoveringFor);
+        Assert.DoesNotContain(ItemFlag.Covered, approved.Flags);
+        Assert.Null(result.Value.NeedsAction.Single(r => r.Facility.Code == "F01").CoveringFor);
     }
 
     [Fact]
@@ -36,7 +56,7 @@ public class WorkItemsTests
         await using var database = await SqliteTestDatabase.CreateSeededAsync(SqliteTestDatabase.MidMonth);
         await using var db = database.CreateContext();
 
-        var result = await new GetMyWorkHandler(Reader(db, database)).HandleAsync(Alex, null, CancellationToken.None);
+        var result = await new GetMyWorkHandler(Reader(db), Contexts(db, database)).HandleAsync(Alex, null, CancellationToken.None);
 
         var blocked = result.Value.NeedsAction.Single(r => r.Facility.Code == "F02");
         Assert.Equal(("Alex", "Sam", "Sam"), (blocked.Owner.Name, blocked.Reviewer?.Name, blocked.Team.Name));
@@ -50,7 +70,7 @@ public class WorkItemsTests
         await using var database = await SqliteTestDatabase.CreateSeededAsync(SqliteTestDatabase.MidMonth);
         await using var db = database.CreateContext();
 
-        var result = await new GetOverviewHandler(Reader(db, database)).HandleAsync(Alex, null, CancellationToken.None);
+        var result = await new GetOverviewHandler(Reader(db), Contexts(db, database)).HandleAsync(Alex, null, CancellationToken.None);
 
         Assert.Equal(ErrorKind.Forbidden, result.Error?.Kind);
     }
@@ -61,14 +81,56 @@ public class WorkItemsTests
         await using var database = await SqliteTestDatabase.CreateSeededAsync(SqliteTestDatabase.MidMonth);
         await using var db = database.CreateContext();
 
-        var overview = (await new GetOverviewHandler(Reader(db, database)).HandleAsync(Jordan, null, CancellationToken.None)).Value;
+        var overview = (await new GetOverviewHandler(Reader(db), Contexts(db, database)).HandleAsync(Jordan, null, CancellationToken.None)).Value;
 
         Assert.Equal(["F13", "F14", "F15"], overview.Items.Select(r => r.Facility.Code).Order());
         Assert.Equal(3, overview.NeedsAttention.Count);
         Assert.Empty(overview.WaitingForMyReview);
-        Assert.Equal([("Dana", 3, 0, 0)], overview.People.Select(p => (p.Person.Name, p.Open, p.Submitted, p.Approved)));
+        Assert.Equal(
+            [("Dana", 3, 0, 0, (DateOnly?)new DateOnly(2026, 11, 21), (string?)null)],
+            overview.People.Select(p => (p.Person.Name, p.Open, p.Submitted, p.Approved, p.AwayUntil, p.Cover?.Name)));
+        Assert.All(overview.Items, r => Assert.Contains(ItemFlag.NeedsCover, r.Flags));
         Assert.Null(overview.Progress);
         Assert.Null(overview.Teams);
+    }
+
+    [Fact]
+    public async Task GetOverview_ReviewersCover_SeesSubmittedItemWaiting()
+    {
+        await using var database = await SqliteTestDatabase.CreateSeededAsync(SqliteTestDatabase.MidMonth);
+        await using var db = database.CreateContext();
+
+        var overview = (await new GetOverviewHandler(Reader(db), Contexts(db, database)).HandleAsync(Sam, null, CancellationToken.None)).Value;
+
+        Assert.Equal(["F09", "F04"], overview.WaitingForMyReview.Select(r => r.Facility.Code));
+        Assert.Contains(overview.Items, r => r.Owner.Name == "Charlie");
+        Assert.Contains(overview.People, p => p.Person.Name == "Blake" && p.Cover?.Name == "Alex");
+    }
+
+    [Fact]
+    public async Task Transition_CoverActsForOwner_RecordsOnBehalfOf()
+    {
+        await using var database = await SqliteTestDatabase.CreateSeededAsync(SqliteTestDatabase.MidMonth);
+        await using var db = database.CreateContext();
+        var (blakesItem, version) = await OpenItemAsync(db, "F07");
+
+        var detail = (await Transition(db, database, Alex, blakesItem, WorkflowAction.Start, null, version)).Value;
+
+        Assert.Equal(WorkItemStatus.InProgress, detail.Item.Status);
+        Assert.Equal(("Alex", "Blake"), (detail.Events[0].Actor.Name, detail.Events[0].OnBehalfOf?.Name));
+    }
+
+    [Fact]
+    public async Task Transition_ReviewersCoverApproves_RecordsOnBehalfOfReviewer()
+    {
+        await using var database = await SqliteTestDatabase.CreateSeededAsync(SqliteTestDatabase.MidMonth);
+        await using var db = database.CreateContext();
+        var (charliesItem, version) = await OpenItemAsync(db, "F09");
+
+        var detail = (await Transition(db, database, Sam, charliesItem, WorkflowAction.Approve, null, version)).Value;
+
+        Assert.Equal(WorkItemStatus.Approved, detail.Item.Status);
+        Assert.Equal(("Sam", "Taylor"), (detail.Events[0].Actor.Name, detail.Events[0].OnBehalfOf?.Name));
     }
 
     [Fact]
@@ -77,7 +139,7 @@ public class WorkItemsTests
         await using var database = await SqliteTestDatabase.CreateSeededAsync(SqliteTestDatabase.MidMonth);
         await using var db = database.CreateContext();
 
-        var overview = (await new GetOverviewHandler(Reader(db, database)).HandleAsync(Morgan, null, CancellationToken.None)).Value;
+        var overview = (await new GetOverviewHandler(Reader(db), Contexts(db, database)).HandleAsync(Morgan, null, CancellationToken.None)).Value;
 
         Assert.Equal(20, overview.Items.Count);
         Assert.Equal(
@@ -96,7 +158,7 @@ public class WorkItemsTests
     {
         await using var database = await SqliteTestDatabase.CreateSeededAsync(SqliteTestDatabase.MidMonth);
         await using var db = database.CreateContext();
-        var handler = new GetOverviewHandler(Reader(db, database));
+        var handler = new GetOverviewHandler(Reader(db), Contexts(db, database));
 
         var quinn = (await handler.HandleAsync(Quinn, null, CancellationToken.None)).Value;
         var morgan = (await handler.HandleAsync(Morgan, null, CancellationToken.None)).Value;
@@ -115,7 +177,7 @@ public class WorkItemsTests
         await using var db = database.CreateContext();
         var closedId = await db.ReviewCycles.Where(c => c.Status == CycleStatus.Closed).Select(c => c.Id).SingleAsync();
 
-        var overview = (await new GetOverviewHandler(Reader(db, database)).HandleAsync(Morgan, closedId, CancellationToken.None)).Value;
+        var overview = (await new GetOverviewHandler(Reader(db), Contexts(db, database)).HandleAsync(Morgan, closedId, CancellationToken.None)).Value;
 
         Assert.Equal(CycleStatus.Closed, overview.Cycle.Status);
         Assert.All(overview.Items, r => Assert.Empty(r.AllowedActions));
@@ -127,7 +189,7 @@ public class WorkItemsTests
         await using var database = await SqliteTestDatabase.CreateSeededAsync(SqliteTestDatabase.MidMonth);
         await using var db = database.CreateContext();
 
-        var result = await new GetOverviewHandler(Reader(db, database)).HandleAsync(Morgan, 999, CancellationToken.None);
+        var result = await new GetOverviewHandler(Reader(db), Contexts(db, database)).HandleAsync(Morgan, 999, CancellationToken.None);
 
         Assert.Equal(ErrorKind.NotFound, result.Error?.Kind);
     }
@@ -139,7 +201,7 @@ public class WorkItemsTests
         await using var db = database.CreateContext();
         var charliesItem = await OpenItemIdAsync(db, "F09");
 
-        var result = await new GetWorkItemHandler(Reader(db, database)).HandleAsync(Alex, charliesItem, CancellationToken.None);
+        var result = await new GetWorkItemHandler(Reader(db), Contexts(db, database)).HandleAsync(Alex, charliesItem, CancellationToken.None);
 
         Assert.Equal(ErrorKind.NotFound, result.Error?.Kind);
     }
@@ -151,7 +213,7 @@ public class WorkItemsTests
         await using var db = database.CreateContext();
         var itemId = await OpenItemIdAsync(db, "F02");
 
-        var detail = (await new GetWorkItemHandler(Reader(db, database)).HandleAsync(Alex, itemId, CancellationToken.None)).Value;
+        var detail = (await new GetWorkItemHandler(Reader(db), Contexts(db, database)).HandleAsync(Alex, itemId, CancellationToken.None)).Value;
 
         Assert.Equal(
             [WorkItemStatus.Blocked, WorkItemStatus.InProgress, WorkItemStatus.NotStarted],
@@ -184,9 +246,9 @@ public class WorkItemsTests
     {
         await using var database = await SqliteTestDatabase.CreateSeededAsync(SqliteTestDatabase.MidMonth);
         await using var db = database.CreateContext();
-        var (blakesItem, version) = await OpenItemAsync(db, "F07");
+        var (danasItem, version) = await OpenItemAsync(db, "F14");
 
-        var result = await Transition(db, database, Alex, blakesItem, WorkflowAction.Start, null, version);
+        var result = await Transition(db, database, Alex, danasItem, WorkflowAction.Start, null, version);
 
         Assert.Equal(ErrorKind.NotFound, result.Error?.Kind);
     }
@@ -326,16 +388,18 @@ public class WorkItemsTests
         Assert.Equal(ErrorKind.Invalid, (await Comment(db, database, Alex, openItem, "")).Error?.Kind);
     }
 
-    private static WorkItemReader Reader(AppDbContext db, SqliteTestDatabase database) => new(db, database.Calendar);
+    private static WorkItemReader Reader(AppDbContext db) => new(db);
+
+    private static RequestContextLoader Contexts(AppDbContext db, SqliteTestDatabase database) => new(db, database.Calendar);
 
     private static Task<Result<WorkItemDetail>> Transition(
         AppDbContext db, SqliteTestDatabase database, CurrentUser user, int itemId, WorkflowAction action, string? text, int version) =>
-        new TransitionWorkItemHandler(db, Reader(db, database), database.Calendar)
+        new TransitionWorkItemHandler(db, Reader(db), Contexts(db, database), database.Calendar)
             .HandleAsync(user, itemId, new TransitionRequest(action, text, version), CancellationToken.None);
 
     private static Task<Result<WorkItemDetail>> Comment(
         AppDbContext db, SqliteTestDatabase database, CurrentUser user, int itemId, string? text) =>
-        new AddCommentHandler(db, Reader(db, database), database.Calendar)
+        new AddCommentHandler(db, Reader(db), Contexts(db, database), database.Calendar)
             .HandleAsync(user, itemId, new CommentRequest(text), CancellationToken.None);
 
     private static async Task<T> WithContext<T>(SqliteTestDatabase database, Func<AppDbContext, Task<T>> work)

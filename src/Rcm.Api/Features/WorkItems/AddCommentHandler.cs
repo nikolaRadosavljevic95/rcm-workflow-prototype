@@ -6,18 +6,18 @@ using Rcm.Api.Domain;
 namespace Rcm.Api.Features.WorkItems;
 
 // A comment is an event only. It does not change the item, so Version stays as it is.
-public sealed class AddCommentHandler(AppDbContext db, WorkItemReader reader, BusinessCalendar calendar)
+public sealed class AddCommentHandler(
+    AppDbContext db, WorkItemReader reader, RequestContextLoader contexts, BusinessCalendar calendar)
 {
     public async Task<Result<WorkItemDetail>> HandleAsync(
         CurrentUser user, int itemId, CommentRequest request, CancellationToken ct)
     {
-        var org = await reader.LoadOrgAsync(ct);
-        var actor = WorkItemReader.ActorFor(user);
+        var context = await contexts.LoadAsync(user, ct);
         var item = await db.WorkItems
             .AsNoTracking()
             .Include(w => w.Cycle)
             .SingleOrDefaultAsync(w => w.Id == itemId, ct);
-        if (item is null || !VisibilityRules.CanSee(actor, item.AssigneeId, org))
+        if (item is null || !VisibilityRules.CanSee(context.Actor, item.AssigneeId, context.Org))
         {
             return Error.NotFound("Work item not found.");
         }
@@ -32,13 +32,13 @@ public sealed class AddCommentHandler(AppDbContext db, WorkItemReader reader, Bu
         {
             WorkItemId = item.Id,
             Type = WorkItemEventType.Commented,
-            ActorId = actor.UserId,
+            ActorId = context.Actor.UserId,
             Text = text.Value,
             CreatedAt = calendar.UtcNow,
         });
         await db.SaveChangesAsync(ct);
 
-        var detail = await reader.LoadDetailAsync(itemId, actor, org, ct);
+        var detail = await reader.LoadDetailAsync(itemId, context, ct);
         return detail is null ? Error.NotFound("Work item not found.") : detail;
     }
 }

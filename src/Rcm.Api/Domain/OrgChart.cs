@@ -1,6 +1,6 @@
 namespace Rcm.Api.Domain;
 
-public sealed record OrgPerson(int Id, string Name, Role Role, int? ReportsToId);
+public sealed record OrgPerson(int Id, string Name, Role Role, int? ReportsToId, bool IsActive = true);
 
 // Reporting lines as they are now. Reviewers and teams are read from here when someone acts, never stored.
 public sealed class OrgChart

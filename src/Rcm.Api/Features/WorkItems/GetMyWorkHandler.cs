@@ -4,7 +4,7 @@ using Rcm.Api.Features.Cycles;
 
 namespace Rcm.Api.Features.WorkItems;
 
-public sealed class GetMyWorkHandler(WorkItemReader reader)
+public sealed class GetMyWorkHandler(WorkItemReader reader, RequestContextLoader contexts)
 {
     public async Task<Result<MyWorkResponse>> HandleAsync(CurrentUser user, int? cycleId, CancellationToken ct)
     {
@@ -14,11 +14,10 @@ public sealed class GetMyWorkHandler(WorkItemReader reader)
             return Error.NotFound("Month not found.");
         }
 
-        var org = await reader.LoadOrgAsync(ct);
-        var actor = WorkItemReader.ActorFor(user);
+        var context = await contexts.LoadAsync(user, ct);
         var rows = (await reader.LoadItemsAsync(cycle.Id, ct))
-            .Where(item => VisibilityRules.InMyWork(actor, item.AssigneeId))
-            .Select(item => reader.ToRow(item, actor, org))
+            .Where(item => VisibilityRules.InMyWork(context.Actor, item.AssigneeId))
+            .Select(item => WorkItemReader.ToRow(item, context))
             .ToList();
 
         return new MyWorkResponse(

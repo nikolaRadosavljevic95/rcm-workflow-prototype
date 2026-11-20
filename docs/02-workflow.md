@@ -116,7 +116,11 @@ Computed when read. They are not statuses, because an item can be overdue in any
   - the cover's role ranks lower than the absent person's. Roles rank Biller, Supervisor, Manager.
 - No chains. If the cover is also away on a given day, the owner's items show Needs cover that day.
 - An absence can be saved without a cover. Its items show Needs cover until one is set.
-- An absence can be shortened or given a cover later. It can be deleted only before it starts.
+- An absence starts today or later.
+- Before it starts, every field can change. Once it has started, the start date stays, the end can move to any day from today on, and the cover and note can change. An absence that has ended is read-only.
+- It can be deleted only before it starts.
+- The Absences page shows a supervisor their own and their direct reports' absences, which they can change, and the ones they cover, read-only.
+- Decision: no backdated absences. A cover only grants rights for days still ahead, and past events already record who acted. A day that was never recorded stays unrecorded.
 - Decision: a cover is a dated permission, not a reassignment. One cover takes all of the owner's items; choosing per item waits for single-item reassignment.
 - Decision: a cover's role must be the same or higher. A biller can never cover a supervisor, since that would let a biller approve a peer's work.
 

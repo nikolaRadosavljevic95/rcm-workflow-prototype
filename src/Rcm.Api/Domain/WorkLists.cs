@@ -22,5 +22,6 @@ public static class WorkLists
     public static bool NeedsAttention(WorkItemStatus status, IReadOnlyCollection<ItemFlag> flags) =>
         status is WorkItemStatus.Blocked or WorkItemStatus.Returned
         || flags.Contains(ItemFlag.Overdue)
+        || flags.Contains(ItemFlag.NeedsCover)
         || flags.Contains(ItemFlag.MissedLastMonth);
 }
