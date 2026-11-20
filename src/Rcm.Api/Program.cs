@@ -8,6 +8,7 @@ using Rcm.Api.Domain;
 using Rcm.Api.Features;
 using Rcm.Api.Features.Absences;
 using Rcm.Api.Features.Cycles;
+using Rcm.Api.Features.Facilities;
 using Rcm.Api.Features.Demo;
 using Rcm.Api.Features.Me;
 using Rcm.Api.Features.Users;
@@ -64,6 +65,8 @@ builder.Services.AddScoped<GetAbsencesHandler>();
 builder.Services.AddScoped<CreateAbsenceHandler>();
 builder.Services.AddScoped<UpdateAbsenceHandler>();
 builder.Services.AddScoped<DeleteAbsenceHandler>();
+builder.Services.AddScoped<GetFacilitiesHandler>();
+builder.Services.AddScoped<MoveFacilityHandler>();
 
 var app = builder.Build();
 
@@ -86,6 +89,7 @@ app.MapUsersEndpoints();
 app.MapCyclesEndpoints();
 app.MapWorkItemsEndpoints();
 app.MapAbsencesEndpoints();
+app.MapFacilitiesEndpoints();
 
 app.Run();
 return 0;

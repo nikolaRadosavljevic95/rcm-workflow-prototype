@@ -130,6 +130,8 @@ Computed when read. They are not statuses, because an item can be overdue in any
 - "Also move this month's open item" is on by default. When on, an open item gets the new owner and a Reassigned event. A Submitted item keeps its submitter, and the new owner's reviewer reviews it.
 - Approved and Incomplete items never move, so history stays true.
 - Months opened later use the new owner.
+- An inactive facility cannot move, and a move to the current owner is rejected.
+- Decision: a move ignores absences. If the new owner is away today with no cover, the moved item shows Needs cover until someone sets one. The cost is a moved item nobody can work for a few days; the gain is that ownership and covers stay independent.
 
 ## Opening and closing a month
 - Open: manager only. No other month may be open. It must be the month after the latest one. The due date must fall inside the month.

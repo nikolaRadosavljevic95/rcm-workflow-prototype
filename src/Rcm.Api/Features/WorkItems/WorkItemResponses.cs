@@ -37,7 +37,7 @@ public sealed record StatusCount(WorkItemStatus Status, int Count);
 
 public sealed record TeamSummary(PersonRef Supervisor, int Items, int Approved, int Submitted, int Open, int Overdue);
 
-// Progress and Teams are filled for managers only.
+// Progress and Teams are filled for managers only. CanMoveFacilities shows Move facility on every row.
 public sealed record OverviewResponse(
     CycleResponse Cycle,
     IReadOnlyList<WorkItemRow> WaitingForMyReview,
@@ -46,7 +46,8 @@ public sealed record OverviewResponse(
     IReadOnlyList<WorkItemRow> Items,
     IReadOnlyList<StatusCount>? Progress,
     IReadOnlyList<TeamSummary>? Teams,
-    MonthActionsResponse MonthActions);
+    MonthActionsResponse MonthActions,
+    bool CanMoveFacilities);
 
 public sealed record EventResponse(
     int Id,

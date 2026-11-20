@@ -76,8 +76,7 @@ public static class CycleRules
                 cycles.Any(c => c.Status == CycleStatus.Open) ? null : NextToOpen(cycles, today));
 
     // Submitted items close too: the review did not finish inside the month.
-    public static bool ClosesAsIncomplete(WorkItemStatus status) =>
-        status is not (WorkItemStatus.Approved or WorkItemStatus.Incomplete);
+    public static bool ClosesAsIncomplete(WorkItemStatus status) => !status.IsFinal();
 
     public static WorkItem NewItem(
         ReviewCycle cycle, int facilityId, int ownerId, int? previousItemId, int actorId, DateTime utcNow) =>

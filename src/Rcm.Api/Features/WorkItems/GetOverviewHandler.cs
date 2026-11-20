@@ -36,7 +36,8 @@ public sealed class GetOverviewHandler(WorkItemReader reader, RequestContextLoad
             WorkItemReader.ByArOver90(rows),
             isManager ? Progress(rows) : null,
             isManager ? Teams(rows) : null,
-            MonthActionsResponse.From(monthActions));
+            MonthActionsResponse.From(monthActions),
+            FacilityMoveRules.MayMove(user.Role));
     }
 
     private static List<PersonSummary> People(IReadOnlyList<WorkItemRow> rows, RequestContext context) =>
