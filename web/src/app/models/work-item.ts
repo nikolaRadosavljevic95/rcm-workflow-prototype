@@ -85,6 +85,8 @@ export interface Overview {
   progress: StatusCount[] | null;
   teams: TeamSummary[] | null;
   monthActions: MonthActions;
+  // Shows Move facility on every row of All items.
+  canMoveFacilities: boolean;
 }
 
 export interface WorkItemEvent {

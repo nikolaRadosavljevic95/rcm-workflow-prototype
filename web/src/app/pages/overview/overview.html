@@ -109,6 +109,9 @@
     </section>
   }
 
+  @if (movingFacility(); as facility) {
+    <app-move-facility-dialog [facility]="facility" (moved)="facilityMoved()" (cancelled)="movingFacility.set(null)" />
+  }
   @if (monthDialog() === 'close') {
     <app-close-month-dialog [cycle]="o.cycle" (closed)="monthClosed($event)" (cancelled)="monthDialog.set(null)" />
   }
@@ -149,6 +152,12 @@
         </label>
       </div>
     </div>
-    <app-item-table [rows]="filteredItems()" [showPeople]="true" [showTotal]="true" />
+    <app-item-table
+      [rows]="filteredItems()"
+      [showPeople]="true"
+      [showTotal]="true"
+      [showMove]="o.canMoveFacilities"
+      (moveFacility)="movingFacility.set($event)"
+    />
   </section>
 }

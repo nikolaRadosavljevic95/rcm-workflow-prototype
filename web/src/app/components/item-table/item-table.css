@@ -21,3 +21,8 @@ th[aria-sort='descending'] .sort::after {
 th[aria-sort='ascending'] .sort::after {
   content: ' \2191';
 }
+
+.actions {
+  text-align: right;
+  white-space: nowrap;
+}

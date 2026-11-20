@@ -1,0 +1,45 @@
+<dialog #dialog aria-labelledby="move-facility-title" (cancel)="dismiss($event)">
+  <form (submit)="$event.preventDefault(); confirm()">
+    <h2 id="move-facility-title">Move {{ facility().name }}</h2>
+
+    @if (data(); as d) {
+      <div class="fields">
+        <p class="from">From {{ currentOwner()?.name ?? 'nobody' }} to</p>
+        <label>
+          <span class="visually-hidden">New owner</span>
+          <select #owner (change)="pickOwner(owner.value)">
+            <option value="" [selected]="newOwnerId() === null">Choose a person</option>
+            @for (person of d.eligibleOwners; track person.id) {
+              <option [value]="person.id" [selected]="person.id === newOwnerId()">{{ person.name }}</option>
+            }
+          </select>
+        </label>
+        <label class="reason">
+          Reason
+          <input
+            #reasonInput
+            type="text"
+            maxlength="500"
+            [value]="reason()"
+            (input)="reason.set(reasonInput.value)"
+          />
+        </label>
+      </div>
+      <label class="check">
+        <input #moveItem type="checkbox" [checked]="moveOpenItem()" (change)="moveOpenItem.set(moveItem.checked)" />
+        Also move this month's open item
+      </label>
+    } @else if (error() === null) {
+      <p class="empty">Loading.</p>
+    }
+
+    @if (error(); as text) {
+      <p class="message" role="alert">{{ text }}</p>
+    }
+
+    <div class="dialog-buttons">
+      <button type="button" class="secondary" [disabled]="busy()" (click)="cancelled.emit()">Cancel</button>
+      <button type="submit" [disabled]="busy() || data() === null">Move</button>
+    </div>
+  </form>
+</dialog>

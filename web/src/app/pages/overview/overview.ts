@@ -4,10 +4,11 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { CloseMonthDialog } from '../../components/close-month-dialog/close-month-dialog';
 import { ItemTable } from '../../components/item-table/item-table';
 import { MonthPicker, cycleIdFrom } from '../../components/month-picker/month-picker';
+import { MoveFacilityDialog } from '../../components/move-facility-dialog/move-facility-dialog';
 import { OpenMonthDialog } from '../../components/open-month-dialog/open-month-dialog';
 import { Cycle } from '../../models/cycle';
 import { flagLabels, statusLabels } from '../../models/labels';
-import { ItemFlag, Overview, PersonRef, WorkItemStatus } from '../../models/work-item';
+import { FacilityRef, ItemFlag, Overview, PersonRef, WorkItemStatus } from '../../models/work-item';
 import { problemMessage } from '../../services/problem';
 import { WorkItemsApi } from '../../services/work-items-api';
 
@@ -15,7 +16,7 @@ const allFlags: readonly ItemFlag[] = ['Overdue', 'NeedsCover', 'Covered', 'Miss
 
 @Component({
   selector: 'app-overview',
-  imports: [CloseMonthDialog, DatePipe, ItemTable, MonthPicker, OpenMonthDialog],
+  imports: [CloseMonthDialog, DatePipe, ItemTable, MonthPicker, MoveFacilityDialog, OpenMonthDialog],
   templateUrl: './overview.html',
   styleUrl: './overview.css',
 })
@@ -33,6 +34,7 @@ export class OverviewPage {
   protected readonly flagLabels = flagLabels;
   protected readonly allFlags = allFlags;
   protected readonly monthDialog = signal<'close' | 'open' | null>(null);
+  protected readonly movingFacility = signal<FacilityRef | null>(null);
 
   // The All items filters only narrow what the API already sent.
   protected readonly statusFilter = signal<WorkItemStatus | null>(null);
@@ -81,6 +83,12 @@ export class OverviewPage {
   protected async monthOpened(cycle: Cycle): Promise<void> {
     this.monthDialog.set(null);
     await this.router.navigate([], { relativeTo: this.route, queryParams: { cycle: cycle.id } });
+  }
+
+  protected async facilityMoved(): Promise<void> {
+    this.movingFacility.set(null);
+    const shown = this.overview();
+    await this.load(shown === null ? null : shown.cycle.id);
   }
 
   private async load(cycleId: number | null): Promise<void> {

@@ -1,6 +1,6 @@
-import { Component, computed, inject, input, signal } from '@angular/core';
+import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { WorkItemRow } from '../../models/work-item';
+import { FacilityRef, WorkItemRow } from '../../models/work-item';
 import { FlagList } from '../flag-list/flag-list';
 import { MoneyPipe } from '../money.pipe';
 import { StatusBadge } from '../status-badge/status-badge';
@@ -25,6 +25,9 @@ export class ItemTable {
   readonly rows = input.required<readonly WorkItemRow[]>();
   readonly showPeople = input(false);
   readonly showTotal = input(false);
+  // Adds a Move facility button per row. The page turns it on only when the API allows moves.
+  readonly showMove = input(false);
+  readonly moveFacility = output<FacilityRef>();
 
   protected readonly sort = signal<Sort | null>(null);
   protected readonly sortedRows = computed(() => {

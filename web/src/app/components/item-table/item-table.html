@@ -19,6 +19,9 @@
         <th class="amount" [attr.aria-sort]="ariaSort('arOver90Cents')">
           <button type="button" class="sort" (click)="toggleSort('arOver90Cents')">AR over 90</button>
         </th>
+        @if (showMove()) {
+          <th><span class="visually-hidden">Actions</span></th>
+        }
       </tr>
     </thead>
     <tbody>
@@ -35,6 +38,13 @@
             <td class="amount">{{ row.arTotalCents | money }}</td>
           }
           <td class="amount">{{ row.arOver90Cents | money }}</td>
+          @if (showMove()) {
+            <td class="actions">
+              <button type="button" class="secondary" (click)="$event.stopPropagation(); moveFacility.emit(row.facility)">
+                Move facility
+              </button>
+            </td>
+          }
         </tr>
       }
     </tbody>
