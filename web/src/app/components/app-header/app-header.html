@@ -1,10 +1,13 @@
 <header>
   <span class="title">RCM Monthly Review</span>
   <nav>
-    @if (showOverview()) {
+    @if (isStaff()) {
       <a routerLink="/overview" routerLinkActive="active">Overview</a>
     }
     <a routerLink="/my-work" routerLinkActive="active">My work</a>
+    @if (isStaff()) {
+      <a routerLink="/absences" routerLinkActive="active">Absences</a>
+    }
   </nav>
   <span class="user">{{ user().name }}, {{ user().role }}</span>
   <button type="button" class="secondary" (click)="signOut()">Sign out</button>

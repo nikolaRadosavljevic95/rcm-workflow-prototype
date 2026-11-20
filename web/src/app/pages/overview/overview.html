@@ -40,6 +40,7 @@
             <th class="amount">Open</th>
             <th class="amount">Submitted</th>
             <th class="amount">Approved</th>
+            <th>Today</th>
           </tr>
         </thead>
         <tbody>
@@ -49,6 +50,16 @@
               <td class="amount">{{ person.open }}</td>
               <td class="amount">{{ person.submitted }}</td>
               <td class="amount">{{ person.approved }}</td>
+              <td>
+                @if (person.awayUntil; as until) {
+                  Away until {{ until | date: 'MMM d' }},
+                  @if (person.cover; as cover) {
+                    covered by {{ cover.name }}
+                  } @else {
+                    <span class="no-cover">no cover</span>
+                  }
+                }
+              </td>
             </tr>
           }
         </tbody>

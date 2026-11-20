@@ -30,7 +30,7 @@
             <td>{{ row.reviewer?.name ?? 'Any manager' }}</td>
           }
           <td><app-status-badge [status]="row.status" /></td>
-          <td><app-flag-list [flags]="row.flags" /></td>
+          <td><app-flag-list [row]="row" /></td>
           @if (showTotal()) {
             <td class="amount">{{ row.arTotalCents | money }}</td>
           }

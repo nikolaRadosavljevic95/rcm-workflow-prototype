@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { Role } from './models/user';
+import { AbsencesPage } from './pages/absences/absences';
 import { ItemPage } from './pages/item/item';
 import { MyWorkPage } from './pages/my-work/my-work';
 import { OverviewPage } from './pages/overview/overview';
@@ -17,6 +18,13 @@ export const routes: Routes = [
     canActivate: [signedInGuard],
     data: { roles: staff },
     title: 'Overview',
+  },
+  {
+    path: 'absences',
+    component: AbsencesPage,
+    canActivate: [signedInGuard],
+    data: { roles: staff },
+    title: 'Absences',
   },
   { path: 'items/:id', component: ItemPage, canActivate: [signedInGuard], title: 'Work item' },
   { path: '', pathMatch: 'full', canActivate: [homeGuard], children: [] },

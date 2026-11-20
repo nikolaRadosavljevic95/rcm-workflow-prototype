@@ -1,0 +1,13 @@
+.title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.needs-cover {
+  color: var(--warning-text);
+}
+
+.actions {
+  text-align: right;
+}

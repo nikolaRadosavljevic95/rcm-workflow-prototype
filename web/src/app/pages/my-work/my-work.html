@@ -1,5 +1,9 @@
 <h1>My work</h1>
 
+@if (coveringFor()) {
+  <p class="covering">Covering for {{ coveringFor() }} today.</p>
+}
+
 @if (message(); as text) {
   <p class="message" role="alert">{{ text }}</p>
 }

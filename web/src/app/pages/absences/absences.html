@@ -1,0 +1,60 @@
+<div class="title-row">
+  <h1>Absences</h1>
+  @if (data()?.people?.length && editing() === null) {
+    <button type="button" (click)="startNew()">New absence</button>
+  }
+</div>
+
+@if (message(); as text) {
+  <p class="message" role="alert">{{ text }}</p>
+}
+
+@if (editing() !== null && data(); as d) {
+  <app-absence-form
+    [absence]="editedAbsence()"
+    [people]="d.people"
+    [users]="users()"
+    [busy]="busy()"
+    [error]="formError()"
+    (save)="save($event)"
+    (remove)="remove()"
+    (cancel)="close()"
+  />
+}
+
+@if (data(); as d) {
+  @if (d.absences.length === 0) {
+    <p class="empty">No current or upcoming absences.</p>
+  } @else {
+    <table>
+      <thead>
+        <tr>
+          <th>Person</th>
+          <th>From</th>
+          <th>To</th>
+          <th>Cover</th>
+          <th>Today</th>
+          <th>Note</th>
+          <th><span class="visually-hidden">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (absence of d.absences; track absence.id) {
+          <tr>
+            <td>{{ absence.person.name }}</td>
+            <td>{{ absence.startDate | date: 'MMM d' }}</td>
+            <td>{{ absence.endDate | date: 'MMM d' }}</td>
+            <td>{{ absence.cover?.name ?? 'none' }}</td>
+            <td [class.needs-cover]="absence.today === 'AwayNeedsCover'">{{ todayLabels[absence.today] }}</td>
+            <td>{{ absence.note }}</td>
+            <td class="actions">
+              @if (absence.canEdit) {
+                <button type="button" class="secondary" [disabled]="busy()" (click)="edit(absence)">Edit</button>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+}

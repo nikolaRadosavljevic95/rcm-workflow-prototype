@@ -7,6 +7,10 @@
   list-style: none;
 }
 
+.no-cover {
+  color: var(--warning-text);
+}
+
 .all-items-header {
   display: flex;
   flex-wrap: wrap;

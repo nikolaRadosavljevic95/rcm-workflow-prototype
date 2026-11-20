@@ -19,7 +19,7 @@
     <div><dt>Reviewer</dt><dd>{{ d.item.reviewer?.name ?? 'Any manager' }}</dd></div>
     <div><dt>Due</dt><dd>{{ d.item.dueDate | date: 'MMM d' }}</dd></div>
     <div><dt>Status</dt><dd><app-status-badge [status]="d.item.status" /></dd></div>
-    <div><dt>Flags</dt><dd><app-flag-list [flags]="d.item.flags" /></dd></div>
+    <div><dt>Flags</dt><dd><app-flag-list [row]="d.item" /></dd></div>
   </dl>
   <dl class="facts">
     <div><dt>AR total</dt><dd>{{ d.item.arTotalCents | money }}</dd></div>

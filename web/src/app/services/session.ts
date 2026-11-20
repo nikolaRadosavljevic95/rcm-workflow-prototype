@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { Role, User } from '../models/user';
+import { Me, Role } from '../models/user';
 
 const storageKey = 'rcm.demoUserId';
 
@@ -15,32 +15,33 @@ export class Session {
   private readonly http = inject(HttpClient);
 
   readonly userId = signal<number | null>(readStoredId());
-  readonly user = signal<User | null>(null);
+  readonly user = signal<Me | null>(null);
 
-  async signIn(userId: number): Promise<User> {
+  async signIn(userId: number): Promise<Me> {
     localStorage.setItem(storageKey, String(userId));
     this.userId.set(userId);
-    return this.reload();
+    return this.refresh();
   }
 
   // Loads the current user once per page load. Null when nobody is signed in.
-  async current(): Promise<User | null> {
+  async current(): Promise<Me | null> {
     if (this.userId() === null) {
       return null;
     }
-    return this.user() ?? this.reload();
+    return this.user() ?? this.refresh();
+  }
+
+  // Covers change during the day, so pages that show them load /api/me again.
+  async refresh(): Promise<Me> {
+    const me = await firstValueFrom(this.http.get<Me>('/api/me'));
+    this.user.set(me);
+    return me;
   }
 
   signOut(): void {
     localStorage.removeItem(storageKey);
     this.userId.set(null);
     this.user.set(null);
-  }
-
-  private async reload(): Promise<User> {
-    const me = await firstValueFrom(this.http.get<User>('/api/me'));
-    this.user.set(me);
-    return me;
   }
 }
 

@@ -1,3 +1,4 @@
+import { DatePipe } from '@angular/common';
 import { Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { ItemTable } from '../../components/item-table/item-table';
 import { MonthPicker, cycleIdFrom } from '../../components/month-picker/month-picker';
@@ -6,11 +7,11 @@ import { ItemFlag, Overview, PersonRef, WorkItemStatus } from '../../models/work
 import { problemMessage } from '../../services/problem';
 import { WorkItemsApi } from '../../services/work-items-api';
 
-const allFlags: readonly ItemFlag[] = ['Overdue', 'MissedLastMonth'];
+const allFlags: readonly ItemFlag[] = ['Overdue', 'NeedsCover', 'Covered', 'MissedLastMonth'];
 
 @Component({
   selector: 'app-overview',
-  imports: [ItemTable, MonthPicker],
+  imports: [DatePipe, ItemTable, MonthPicker],
   templateUrl: './overview.html',
   styleUrl: './overview.css',
 })

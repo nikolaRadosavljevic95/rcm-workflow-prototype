@@ -11,7 +11,7 @@ export type WorkItemStatus =
 
 export type WorkflowAction = 'Start' | 'Block' | 'Unblock' | 'Submit' | 'Approve' | 'Return';
 
-export type ItemFlag = 'Overdue' | 'MissedLastMonth';
+export type ItemFlag = 'Overdue' | 'NeedsCover' | 'Covered' | 'MissedLastMonth';
 
 export type WorkItemEventType = 'Created' | 'StatusChanged' | 'Commented' | 'Reassigned';
 
@@ -36,6 +36,9 @@ export interface WorkItemRow {
   status: WorkItemStatus;
   dueDate: string;
   flags: ItemFlag[];
+  // Who covers the owner today, and the owner again when that cover is the viewer.
+  coveredBy: PersonRef | null;
+  coveringFor: PersonRef | null;
   arTotalCents: number | null;
   arOver90Cents: number | null;
   allowedActions: WorkflowAction[];
@@ -54,6 +57,9 @@ export interface PersonSummary {
   open: number;
   submitted: number;
   approved: number;
+  // Today's absence, if any: last day away and the cover who counts today.
+  awayUntil: string | null;
+  cover: PersonRef | null;
 }
 
 export interface StatusCount {

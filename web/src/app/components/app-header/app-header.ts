@@ -14,7 +14,8 @@ export class AppHeader {
   private readonly router = inject(Router);
 
   readonly user = input.required<User>();
-  protected readonly showOverview = computed(() => this.user().role !== 'Biller');
+  // Supervisors and managers get Overview and Absences (docs/04, Screens).
+  protected readonly isStaff = computed(() => this.user().role !== 'Biller');
 
   protected async signOut(): Promise<void> {
     this.session.signOut();

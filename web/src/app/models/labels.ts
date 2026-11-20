@@ -1,3 +1,4 @@
+import { AbsenceToday } from './absence';
 import { Cycle } from './cycle';
 import { ItemFlag, WorkflowAction, WorkItemStatus } from './work-item';
 
@@ -13,7 +14,16 @@ export const statusLabels: Record<WorkItemStatus, string> = {
 
 export const flagLabels: Record<ItemFlag, string> = {
   Overdue: 'Overdue',
+  NeedsCover: 'Needs cover',
+  Covered: 'Covered',
   MissedLastMonth: 'Missed last month',
+};
+
+export const absenceTodayLabels: Record<AbsenceToday, string> = {
+  Upcoming: 'Upcoming',
+  AwayCovered: 'Away, covered',
+  AwayNeedsCover: 'Away, needs cover',
+  Ended: 'Ended',
 };
 
 export const actionLabels: Record<WorkflowAction, string> = {

@@ -1,0 +1,50 @@
+<form class="absence-form" (submit)="$event.preventDefault(); submit()">
+  <h2>{{ absence() === null ? 'New absence' : 'Edit absence' }}</h2>
+  <div class="fields">
+    <label>
+      Person
+      @if (absence(); as existing) {
+        <span class="fixed">{{ existing.person.name }}</span>
+      } @else {
+        <select #person (change)="pickPerson(person.value)">
+          @for (candidate of people(); track candidate.id) {
+            <option [value]="candidate.id" [selected]="candidate.id === personId()">{{ candidate.name }}</option>
+          }
+        </select>
+      }
+    </label>
+    <label>
+      From
+      <input #from type="date" required [value]="startDate()" (input)="startDate.set(from.value)" />
+    </label>
+    <label>
+      To
+      <input #to type="date" required [value]="endDate()" (input)="endDate.set(to.value)" />
+    </label>
+    <label>
+      Cover
+      <select #cover (change)="pickCover(cover.value)">
+        <option value="" [selected]="coverId() === null">None</option>
+        @for (user of users(); track user.id) {
+          <option [value]="user.id" [selected]="user.id === coverId()">{{ user.name }}</option>
+        }
+      </select>
+    </label>
+    <label class="note">
+      Note
+      <input #noteInput type="text" maxlength="500" [value]="note()" (input)="note.set(noteInput.value)" />
+    </label>
+  </div>
+
+  @if (error(); as text) {
+    <p class="message" role="alert">{{ text }}</p>
+  }
+
+  <div class="buttons">
+    <button type="submit" [disabled]="busy()">Save</button>
+    @if (absence()?.canDelete) {
+      <button type="button" class="secondary" [disabled]="busy()" (click)="remove.emit()">Delete</button>
+    }
+    <button type="button" class="secondary" [disabled]="busy()" (click)="cancel.emit()">Cancel</button>
+  </div>
+</form>
