@@ -1,0 +1,323 @@
+Claude Code session: session 3, review
+Model: claude-opus-5-5
+
+How to read this: lines that start with ❯ are my messages to Claude Code.
+Lines that start with ● are Claude's replies and actions. ⎿ marks a result, such as
+the option I picked or whether I approved a plan. File contents and diffs are left out,
+because the files are in the repo.
+
+My messages in this session (4):
+  1. This is session 3 of 3: review. Steps 1 to 5 are built and committed on main.
+  2. Fix 1, 10, 3, 4, 7, 8 and the docs/05 link. For 2, 6 and 9, add one line each to the do...
+  3. Looks good. Change docs/04 line 80 to say (open month). Commit it as "Fix review findin...
+  4. Commit it
+
+==============================================================================
+❯ This is session 3 of 3: review. Steps 1 to 5 are built and committed on main.
+
+  First, use a subagent for an independent review. Give it only docs/01 to 05 and the code in src/, tests/ and web/src. Not CLAUDE.md, not ai-sessions/, and none of my reasoning. Ask it to find real problems: bugs, rules from docs/02 that the code breaks, edge cases from docs/05 without a test, security issues, and anything that would confuse someone running the app for the first time. It returns a list sorted by severity, with file and line, and changes nothing.
+
+  Then show me the list with your view on each item: agree or not, and why. Don't fix anything yet. I'll pick what gets fixed.
+
+  Ran 1 shell command, used Agent
+
+● The reviewer is running in the background. I gave it docs/01 to 05 and the code in src/, tests/ and web/src, and told it not to open CLAUDE.md, README, ai-sessions/, .claude/ or the git history. It has none of your reasoning, and it can't change anything.
+
+  There's one gap in that isolation. Claude Code may still load CLAUDE.md into a subagent's context automatically. I couldn't prevent that, but its brief says to form its own view from the spec and the code.
+
+  When it finishes, I'll check each finding against the code and give you my view on each one. I won't fix anything.
+
+● Subagent report (Agent "Independent code review" finished):
+  I found no Critical or High issues. The transition table, the permission rules and the visibility rules match docs/02, and I traced each one through the code. What's left is one Medium rule problem, several Low items, and one gap in the edge-case tests.
+
+  **Build and tests**
+  - `dotnet build`, including a full `--no-incremental` rebuild: 0 warnings, 0 errors.
+  - `dotnet test`: 375 passed, 0 failed, 0 skipped.
+
+  **What I checked by running the API** (it is stopped now, and the git tree is clean):
+  - Without the `X-Demo-User` header the API returns 401, and a biller asking for the overview gets 403.
+  - A bad action value returns 400.
+  - When the owner's cover and the owner send a transition at the same moment, one gets 200 and the other 409.
+  - A block reason over 500 characters returns 400 with a clear message.
+  - Smoke step 4 works: Casey has no actions on F19, and Quinn has Approve and Return under Waiting for my review.
+  - Reset demo data returns 204 and the data comes back while the API keeps running.
+
+  ## Medium
+
+  **1. Editing an absence that has started checks the cover against days already past**
+  - Where: `src/Rcm.Api/Domain/AbsenceRules.cs:146-152` (`CoverRule`), called from `Validate` at line 63.
+  - What happens: once an absence has started, its start date cannot change, so `change.StartDate` is a past date. The "cover is away" check still runs over the whole start-to-end range.
+  - Scenario: Blake is away Nov 17–23 with Alex as cover. On Nov 18 Sam records a one-day absence for Alex, which nothing prevents. From Nov 19 on, every edit to Blake's absence fails with "Alex is away on Nov 18": extending it, shortening it, or changing the note. A started absence cannot be deleted, so the only way out is to drop or swap the cover, and Alex can never be set as cover again.
+  - Spec: docs/02, Covers. The rule says "away on any of those days", but the decision there says a cover only grants rights for days still ahead, so past days should not count.
+  - Confidence: confirmed by tracing the code. I could not probe it, because it needs the clock to move forward a day.
+
+  ## Low
+
+  **2. Some submitted items appear in nobody's "Waiting for my review"**
+  - Where: `src/Rcm.Api/Domain/VisibilityRules.cs:22-25` and `ReviewerRules.cs:12-15`.
+  - Scenario: Sam covers Alex and submits Alex's item. Sam is both the submitter and Alex's reviewer, so he is excluded, and managers are deliberately left out of the list. Nobody's queue shows the item. It only surfaces under Needs attention if it is overdue.
+  - The same thing happens after a move that makes the submitter the new reviewer, for example moving Casey's submitted F19 to Emery, who reports to Casey.
+  - Spec: this follows docs/02 Visibility to the letter, but it makes "a manager then approves" (docs/02, Transitions) hard to find.
+  - Confidence: confirmed by tracing.
+
+  **3. Text typed for Block, Submit or Return is lost when the API rejects it**
+  - Where: `web/src/app/components/action-panel/action-panel.ts:46-52` and `action-panel.html:5`.
+  - What happens: `confirm()` closes the prompt before the API answers, and `choose()` clears the text.
+  - Scenario: the textarea has no `maxlength`, but a block reason is limited to 500 characters. A 600-character reason gets a 400, and the user has to retype it. The same loss happens to the second user in a 409 race.
+  - Confidence: confirmed by reading the code, and the 400 by probing.
+
+  **4. Comments a cover writes do not record who they acted for**
+  - Where: `src/Rcm.Api/Features/WorkItems/AddCommentHandler.cs:33-40`. `OnBehalfOfId` is never set.
+  - Spec: docs/02 says "Events record the actor and on whose behalf they acted", and docs/03 says `OnBehalfOfId` is set when a cover acts.
+  - Confidence: likely. The spec does not say clearly whether a comment counts as acting.
+
+  **5. A comment can be added to a month that is closing**
+  - Where: `AddCommentHandler.cs:26-41`.
+  - What happens: the month-open check and the insert are not protected against a close running at the same time, and comments do not bump `Version`. A comment can land after the month closes.
+  - Confidence: likely. It is a narrow race.
+
+  **6. A new month can be opened with an item for the old owner**
+  - Where: `src/Rcm.Api/Features/Cycles/OpenCycleHandler.cs:30-35`.
+  - What happens: opening reads `Facility.OwnerId` without a concurrency token. If another manager moves the facility at the same moment, the new item can be created for the old owner while the facility points to the new one.
+  - Confidence: likely. It needs two managers acting at once.
+
+  **7. Move facility shows on rows from closed months**
+  - Where: `web/src/app/pages/overview/overview.html:191-197` and `item-table.html:44-49`.
+  - What happens: on a closed month, clicking Move on a row moves the facility and, with the checkbox on by default, the open month's item. That is a different item from the row that was clicked. It also shows on inactive facilities, which the API then rejects.
+  - Confidence: confirmed by reading the code.
+
+  **8. Overview filters stay on when the month changes**
+  - Where: `web/src/app/pages/overview/overview.ts:43-45`.
+  - What happens: switching months reuses the page, so the filter values carry over. If the chosen status is not in the new month, the dropdown shows "All" while the list still filters, giving "All items (0)".
+  - Confidence: confirmed by tracing.
+
+  **9. The default date in the absence form uses the browser's date, not New York's**
+  - Where: `web/src/app/components/absence-form/absence-form.ts:61-66`.
+  - Scenario: a viewer west of New York in the late evening gets yesterday's business date as the default start. Saving it returns "An absence cannot start before today."
+  - Confidence: confirmed by reading the code.
+
+  ## Edge-case test gap (docs/05)
+
+  **10. "Owner and cover act at the same time" is not tested as written**
+  - Where: `tests/Rcm.Api.Tests/Features/WorkItemsTests.cs:269`.
+  - What is missing: the test has the owner act twice instead of the owner and the cover. It also only reaches the version check at the start of the handler. The `DbUpdateConcurrencyException` path in `TransitionWorkItemHandler.cs:41-45` is never run; the race helper is used for close and move but not for transitions.
+  - Every other edge case in the docs/05 table and every transition row has a matching test.
+
+  ## No issues found in these areas
+  - Demo sign-in outside Development: the API exits at startup in any other environment.
+  - Logging: nothing logs comment or summary text, and EF sensitive-data logging is off.
+  - `Version` is bumped on transition, close and move. A stale version returns 409, and the database also rejects stale writes.
+  - Time zone: "today" and the overdue flag use the business time zone, and dates display without an off-by-one.
+  - Authorization: visibility, the 404 for hidden items, absence scope and the role checks on endpoints all match the spec.
+  - The UI's allowed actions come from the same rule check the API enforces.
+
+  I did not check the run steps: docs/05 points to CLAUDE.md for the commands, and that file was off limits. Also, I opened `web/package.json` and `web/proxy.conf.json`, which were outside the allowed list. No finding depends on them; I only noticed that the proxy targets port 5080, which matches the API.
+
+  Ran 8 shell commands
+
+● Reviewer's done. I'm checking its findings against the code, with one last check on the run-steps gap it raised.
+
+  Ran 1 shell command
+
+● I checked every finding against the code. Build had 0 warnings and all 375 tests passed. The reviewer found no Critical or High issues; the transition table, permissions and visibility match docs/02.
+
+  It also opened `web/package.json` and `web/proxy.conf.json`, which were outside its brief. None of its findings depends on them.
+
+  **Medium**
+
+  1. **Editing an absence that has started checks the cover against past days** (`src/Rcm.Api/Domain/AbsenceRules.cs:146`). **Agree, and the most important item.** The overlap check uses `change.StartDate`, which is in the past once an absence has started. If the cover takes even one day off after that, the absence can't be edited again unless the cover is removed. The docs/02 decision says a cover only matters for days still ahead. The fix is to check from the later of the start date and today, plus a rule test.
+
+  **Low**
+
+  2. **Some submitted items appear in nobody's "Waiting for my review"** (`VisibilityRules.cs:22`). **Agree it's real, but I wouldn't change the code.** It follows docs/02 Visibility word for word. The case is a supervisor submitting their own biller's item while covering, and the item then sits in no queue. Managers can still find it in All items. Changing the list would change the spec, so at most add one line to docs/02 saying the manager finds it there.
+
+  3. **Text typed for Block, Submit or Return is lost when the API rejects it** (`action-panel.ts:46`). **Agree.** The prompt closes before the API answers. The textarea also has no `maxlength`, while the other inputs do (500 for a block reason, 2000 for other text). The fix is to keep the prompt open until the action succeeds and add `maxlength`.
+
+  4. **Comments a cover writes don't record who they acted for** (`AddCommentHandler.cs:33`). **Agree.** docs/03 line 118 lists "every status change, comment and reassignment, with the actor and on whose behalf", so the reviewer's hesitation isn't needed. The fix is to set `OnBehalfOfId` when the commenter sees the item only through a cover.
+
+  5. **A comment can land after the month closes.** **Disagree.** It's a millisecond race on SQLite, and the result is one harmless extra comment. Fixing it would mean adding locking that a prototype doesn't need.
+
+  6. **A new month can be opened with an item for the old owner.** **Disagree, for the same reason.** It needs two managers opening the month and moving a facility at the same moment. It's worth a line in the docs as a known limit, not a fix.
+
+  7. **Move facility shows on rows from closed months and inactive facilities** (`GetOverviewHandler.cs:40`). **Agree.** `CanMoveFacilities` is computed from the role alone. On a closed month the button moves the open month's item, which isn't the row that was clicked. This also goes against "the UI shows only allowed actions". The fix is to compute it per row, or hide it when the month is closed.
+
+  8. **Overview filters stay on when the month changes** (`overview.ts:94`). **Agree.** `load()` never clears the filters, so a month can show "All" with 0 rows. It's a cheap fix.
+
+  9. **The default absence date uses the browser's date, not New York's** (`absence-form.ts:61`). **Agree, low priority.** It only matters late in the evening west of New York, and the API rejects the date with a clear message. A proper fix would take today's date from the API. I'd leave it unless that's cheap.
+
+  **Tests**
+
+  10. **"Owner and cover act at the same time" (docs/05) isn't tested as written** (`WorkItemsTests.cs:269`). **Agree.** The test has the owner act twice, so it never uses a cover. The `DbUpdateConcurrencyException` catch in `TransitionWorkItemHandler.cs:43` is never run either; another test only shows that EF throws. Every docs/05 edge case is supposed to have a test, so I'd fix this one.
+
+  **My own addition:** `docs/05-technical-design.md:92` sends readers to CLAUDE.md for the run commands. That's the build brief, not a doc for someone running the app. It should point to the README.
+
+  My suggested set to fix: 1, 10, 3, 4, 7, 8 and the docs/05 link. Then 2 and 6 as doc lines only. Tell me which ones you want.
+
+==============================================================================
+❯ Fix 1, 10, 3, 4, 7, 8 and the docs/05 link. For 2, 6 and 9, add one line each to the docs as known limits, no code changes. Skip 5. Each fix comes with a test where it makes sense. Then show me a short summary and stop before the commit.
+
+  Ran 2 shell commands
+
+● Fixing item 1 in the absence rules first.
+
+  Ran 1 shell command
+
+● Next, item 10: the owner-and-cover race test.
+
+  Ran 5 shell commands
+
+● Now item 4, the comment on-behalf-of rule.
+
+  Ran 1 shell command
+
+● Adding the handler tests for items 4 and 10.
+
+  Ran 2 shell commands
+
+● Tests pass (382). Now item 7, the Move facility button.
+
+  Ran 5 shell commands
+
+● API side is done (386 tests pass). Now the UI fixes, items 3 and 8.
+
+  Ran 4 shell commands
+
+● Now the action panel (item 3).
+
+  Ran 1 shell command
+
+● That diff is my own edit. I'll simplify the nested `pending()` check by having `prompt` carry the action.
+
+  Ran 2 shell commands
+
+● Web build is clean. Now the docs: the docs/05 link and the three known-limit lines.
+
+  Ran 3 shell commands
+
+● Docs are updated. Next I'm running the app to check the two UI fixes in a browser.
+
+  Ran 2 shell commands, 2 browser actions
+
+● Signed in as Morgan. Testing item 8: set a filter, then switch the month.
+
+  3 browser actions
+
+● Filters reset to All on the October month with all 20 rows, and the closed month shows no Move facility buttons (item 7). Now item 3: a 409 while the Block prompt is open.
+
+  8 browser actions, ran 1 shell command
+
+● The 409 kept the text and the prompt, and the item reloaded as In progress. I'll check the console error, then confirm the prompt closes on success.
+
+  Ran 1 shell command, 4 browser actions
+
+● All good. Cleaning up: closing the browser, stopping the servers, resetting demo data and removing the Playwright files.
+
+  1 browser action, ran 2 shell commands
+
+● Build has 0 warnings. Git warns about line endings, so I'm checking that my edits didn't switch files from CRLF to LF.
+
+  Ran 2 shell commands
+
+● Everything you picked is fixed and the known limits are documented. `dotnet build` has no warnings and `dotnet test` passes 386 of 386 (11 new tests). Nothing is committed.
+
+  **Fixes**
+  - **1. Absence cover on past days:** the "cover is away" check now starts at the later of the start date and today (`AbsenceRules.cs`). Two new rule tests: the cover was away on a past day (saves), and the cover is away today (rejected).
+  - **10. Owner and cover at the same time:** new handler test. Blake saves between Alex's read and Alex's write; Alex gets 409 and the item keeps Blake's change. This finally runs the `DbUpdateConcurrencyException` path.
+  - **3. Lost text:** the Block, Submit and Return prompt now stays open with its text until the API accepts the action. The textarea has the API's limit (500 for a block reason, 2000 for the others). If a reload means the action is no longer allowed, the prompt hides.
+  - **4. Comment on behalf of:** new `CommentRules.OnBehalfOf` records who the commenter acted for when they see the item only through a cover. Three rule tests and one handler test.
+  - **7. Move facility:** the API now offers it only on an open month (`FacilityMoveRules.ShowOnRows`). One rule test and one handler test for a closed month. No facility is ever set inactive in v1, so an open month only has active facilities.
+  - **8. Overview filters:** they reset when the month changes, and the dropdowns now show the filter that's actually applied.
+  - **docs/05 link:** commands now point to the README's Run section.
+
+  The Angular UI has no automated tests (docs/05 leaves it untested in v1), so I checked 3, 7 and 8 by hand in the browser:
+  - **3:** a forced 409 kept the typed reason and reloaded the item. The retry blocked the item and closed the prompt. Unblock still works.
+  - **7:** October showed no Move facility buttons.
+  - **8:** switching months reset the filters to All, with all 20 rows.
+
+  Afterwards I reset the demo data, stopped both servers and removed the browser files.
+
+  **Known-limit lines**
+  - **2:** docs/02 Visibility, the item in nobody's review queue.
+  - **6:** docs/02 Opening and closing a month, opening a month while a facility is moved.
+  - **9:** docs/04 Absences, the browser's date as the form default.
+
+  **Decision for you:** docs/04 line 80 still says "every row has [Move facility]". That's now true only for the open month. I left it alone because it wasn't on your list; tell me if you want it to say "(open month)".
+
+  20 files changed, all already tracked (no new files). Proposed commit subject: "Fix review findings: absence cover check, comment on-behalf-of, UI prompt and filters". Waiting for your go.
+
+==============================================================================
+❯ Looks good. Change docs/04 line 80 to say (open month). Commit it as "Fix review findings in absences, comments and the UI".
+
+  Then the final README, for the people who review this. Keep what is there and add short sections, in this order:
+  1. What I focused on and why: the monthly workflow, ownership, covers and month-end, with the rules covered by tests, over visual polish.
+  2. What I'd do next: from docs/04 What's next, the production changes in docs/05 and the known limits.
+  3. Time spent: about 2 hours of my own time over two days.
+  4. How I used AI: one line and a link to ai-sessions/.
+
+  Then write ai-sessions/README.md: one line per transcript with what happened in that session, including 03-review.txt for this session. Note that the build continued in a second session after a break, and that steps 4 and 5 ran in a git worktree. Say how the transcripts were made: session 1 with /export, the others from the session logs in the same format, file contents and diffs left out, local paths replaced with ~.
+
+  Show me both files before committing.
+
+  Ran 2 shell commands
+
+● I read the full staged diff and it passes the repo rules. Committing.
+
+  Ran 1 shell command
+
+● Committed as `b02cbe2`. Next, the two READMEs. First I'm reading the transcripts and the git history to see what each session covered.
+
+  Ran 4 shell commands
+
+● I committed the review fixes as `b02cbe2`, with docs/04 line 80 changed to "(open month)" first. Both READMEs are written and nothing is committed yet. Here they are.
+
+  **README.md: new sections after "Left out of v1"**
+
+  ```markdown
+  ## What I focused on
+  The monthly workflow end to end: ownership, the review step, covers for absences, permanent facility moves, and opening and closing a month. The hard part of this problem is who owns an item and who may act on it on a given day, so most of the time went there. Each rule in [docs/02](docs/02-workflow.md) is a pure rule class with unit tests, including every transition row and every edge case in [docs/05](docs/05-technical-design.md#edge-cases). The API decides which actions each user gets, and the UI only shows those.
+
+  Visual polish got the least time. The UI is plain CSS without a component library, and it has no automated tests because it holds no rules.
+
+  ## What I'd do next
+  1. Reopen an approved item, then single-item reassignment. Both are specified in [docs/04](docs/04-first-version.md#whats-next), followed by the rest of that list.
+  2. The [production changes](docs/05-technical-design.md#production-changes): SQL Server with migrations, Windows sign-in, hosting on IIS and the balance import.
+  3. The known limits from review: a submitted item can sit in nobody's review queue ([docs/02](docs/02-workflow.md#visibility)), opening a month does not lock facility owners ([docs/02](docs/02-workflow.md#opening-and-closing-a-month)), and the absence form defaults to the browser's date ([docs/04](docs/04-first-version.md#absences-supervisors-and-managers)).
+
+  ## Time spent
+  About 2 hours of my own time, over two days.
+
+  ## How I used AI
+  I worked with Claude Code in three sessions (design, build, review), and the transcripts are in [ai-sessions/](ai-sessions/).
+  ```
+
+  **ai-sessions/README.md (new)**
+
+  ```markdown
+  # Session transcripts
+
+  - [01-analysis-and-design.txt](01-analysis-and-design.txt): session 1. Read the brief, settled the assumptions, and wrote docs/01 to 05 and the build brief in CLAUDE.md. No code.
+  - [02-build-part-1.txt](02-build-part-1.txt): session 2, steps 1 to 3. Skeleton, seed data and demo sign-in, then work items with their transition rules and tests, then covers.
+  - [02-build-part-2.txt](02-build-part-2.txt): the build continued in a second session after a break. Steps 4 and 5, closing and opening a month and the permanent facility move, ran in a git worktree and were merged into main.
+  - [03-review.txt](03-review.txt): session 3. A subagent briefed with only docs/01 to 05 and the code reviewed it. I picked six findings to fix, with new tests for the API changes, and recorded three as known limits in the docs. Then these READMEs.
+
+  ## How they were made
+  - Session 1 was exported with `/export`.
+  - The others were rebuilt from the session logs in the same format.
+  - File contents and diffs are left out, because the files are in the repo. Local paths are replaced with `~`.
+  ```
+
+  Things to check before you commit:
+  - **Missing transcript:** `ai-sessions/03-review.txt` doesn't exist yet, so its link won't work until you add the file. You may want it in the same commit.
+  - **Review wording:** I wrote "briefed with only docs/01 to 05 and the code" rather than "without the build brief". The brief was limited, but I couldn't confirm that CLAUDE.md wasn't loaded into the subagent.
+  - **Fixes and tests:** "Six findings" counts 1, 3, 4, 7, 8 and 10. The docs/05 link isn't counted. Only the API fixes have new tests; 3 and 8 are UI-only.
+
+  Proposed commit subject: "Add review notes to the README and a guide to the session transcripts". Waiting for your go.
+
+==============================================================================
+❯ Commit it
+
+  Ran 1 shell command
+
+● Committed as `d2d657e` and not pushed. The working tree is clean.
+
+  The link to `ai-sessions/03-review.txt` won't work until you add that transcript.
