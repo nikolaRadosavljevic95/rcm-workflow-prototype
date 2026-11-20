@@ -62,3 +62,19 @@ The seed is relative to today. Last month is closed with two facilities Incomple
 - Account-level data, because it would make the app hold PHI.
 
 Details and reasons are in [docs/04](docs/04-first-version.md).
+
+## What I focused on
+The monthly workflow end to end: ownership, the review step, covers for absences, permanent facility moves, and opening and closing a month. The hard part of this problem is who owns an item and who may act on it on a given day, so most of the time went there. Each rule in [docs/02](docs/02-workflow.md) is a pure rule class with unit tests, including every transition row and every edge case in [docs/05](docs/05-technical-design.md#edge-cases). The API decides which actions each user gets, and the UI only shows those.
+
+Visual polish got the least time. The UI is plain CSS without a component library, and it has no automated tests because it holds no rules.
+
+## What I'd do next
+1. Reopen an approved item, then single-item reassignment. Both are specified in [docs/04](docs/04-first-version.md#whats-next), followed by the rest of that list.
+2. The [production changes](docs/05-technical-design.md#production-changes): SQL Server with migrations, Windows sign-in, hosting on IIS and the balance import.
+3. The known limits from review: a submitted item can sit in nobody's review queue ([docs/02](docs/02-workflow.md#visibility)), opening a month does not lock facility owners ([docs/02](docs/02-workflow.md#opening-and-closing-a-month)), and the absence form defaults to the browser's date ([docs/04](docs/04-first-version.md#absences-supervisors-and-managers)).
+
+## Time spent
+About 2 hours of my own time, over two days.
+
+## How I used AI
+I worked with Claude Code in three sessions (design, build, review), and the transcripts are in [ai-sessions/](ai-sessions/).
