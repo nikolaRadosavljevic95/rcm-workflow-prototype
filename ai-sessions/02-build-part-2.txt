@@ -1,0 +1,591 @@
+Claude Code session: session 2, build, part 2 (steps 4 and 5)
+Model: claude-opus-5-5
+
+How to read this: lines that start with ❯ are my messages to Claude Code.
+Lines that start with ● are Claude's replies and actions. ⎿ marks a result, such as
+the option I picked or whether I approved a plan. File contents and diffs are left out,
+because the files are in the repo.
+
+My messages in this session (8):
+  1. Looks good. Commit it with your subject, then plan step 4.
+  2. Go. Yes, put MonthActions on the overview response. New months get no balances, so they...
+  3. Looks good. Commit it with your subject, then build the web dialogs
+  4. Looks good. Commit it with your subject.
+  5. Step 4 is merged into main. Next, step 5, the facility move from docs/02. Plan it first...
+  6. Go. Your three choices are fine, add them to docs/02 under Permanent move. Stay in this...
+  7. Looks good. One addition before the commit: two managers moving the same facility at th...
+  8. Looks good. Commit it with your subject
+
+==============================================================================
+❯ Looks good. Commit it with your subject, then plan step 4.
+
+● I'll review the full diff against the repo rules before committing.
+
+  Ran 1 shell command, read 1 file
+
+● Diff reads clean against the rules: no dashes, no TODOs, no personal data. Checking that the names in the flag-list comment are seed names, then building the web app before committing.
+
+  Ran 1 shell command
+
+● Build passes and the names are seed users. Committing now.
+
+  Ran 1 shell command
+
+● Committed as `ba34b96`. Now reading the docs and current code for step 4 (closing and opening a month).
+
+  Ran 2 shell commands
+
+● Spec is clear. Checking the existing handler and rule patterns so the plan fits them.
+
+  Ran 2 shell commands
+
+● Committed the absences UI as `ba34b96` "Add Absences page and cover flags to the web app". Before committing I read the full diff against the repo rules and found no dashes, TODOs, personal data or commented-out code. Alex and Blake in the flag-list comment are seed users. `ng build` passed and the pre-commit hook passed.
+
+  You said to use my subject, but I couldn't see the one I proposed earlier, so I wrote a new one. If you wanted different wording, I can amend it. Nothing is pushed.
+
+  ## Step 4 plan: closing and opening a month
+
+  **Rules: `Domain/CycleRules.cs`** (pure, returns `Result`)
+  - `NextMonth(latest)`: the month after the latest cycle. If there are no cycles yet, it uses the current business month.
+  - `CanOpen(role, anyOpen, nextMonth, dueDate)`:
+    - Not a manager: Forbidden.
+    - A month is already open: Invalid.
+    - Due date outside the month: Invalid.
+  - `CanClose(role, cycle)`: managers only, and only an open month.
+  - `DefaultDueDate(year, month)`: the 15th (docs/02).
+  - `WillCloseAsIncomplete(status)`: every status except Approved and Incomplete.
+
+  **API: `Features/Cycles/`**
+  - `POST /api/cycles` → `OpenCycleHandler`:
+    - Creates one Not started item per active facility.
+    - Owner comes from `Facility.OwnerId`. `PreviousItemId` points to the same facility's item in the latest month. Each item gets a `Created` event with the manager as actor.
+    - One `SaveChanges`. A unique (Year, Month) violation from a race returns 409.
+  - `GET /api/cycles/{id}/close-preview` → `CloseCycleHandler.PreviewAsync`: rows with facility, status and owner.
+  - `POST /api/cycles/{id}/close`:
+    - Sets every non-Approved item to Incomplete, with one `StatusChanged` event each, and bumps `Version`.
+    - Marks the cycle Closed and sets `ClosedById` and `ClosedAt`. All of this is one transaction.
+    - A concurrent transition returns 409.
+  - Add `MonthActions` to `OverviewResponse`, so the UI holds no rules:
+    - `canClose` for a manager when the selected month is open.
+    - `openNext { year, month, defaultDueDate }` for a manager when no month is open.
+
+  **Tests**
+  - `CycleRulesTests`: every branch above, plus the December to January rollover.
+  - `CyclesTests` handlers on SQLite:
+    - Open while a month is open, or open a month that already exists: rejected.
+    - Inactive facility: no item.
+    - Items get the facility owner, a link to last month's item and a Created event.
+    - Due date outside the month: 400. Non-manager: 403.
+    - Close with Submitted items: they become Incomplete. Approved items are untouched.
+    - After close, a transition returns 400.
+    - Preview lists Submitted items too.
+    - Open after close: unapproved facilities get Missed last month.
+
+  **Web**
+  - `CyclesApi`: `open`, `closePreview`, `close`.
+  - `components/close-month-dialog` and `components/open-month-dialog`, laid out as in docs/04.
+  - On Overview, show Close month or Open next month only when `monthActions` allows it. After either action, reload into the new or closed month.
+
+  **Assumption to confirm:** I'd put `MonthActions` on the overview response rather than on `/api/cycles`, because that's where docs/04 shows the buttons.
+
+  result: Absences UI committed as ba34b96 (not pushed); step 4 plan (month open/close rules, three cycle endpoints, overview month actions, tests and two dialogs) is ready for your go.
+
+==============================================================================
+❯ Go. Yes, put MonthActions on the overview response. New months get no balances, so they show "Not imported". Build it in two parts as before: rules, API and tests first, then stop for review and commit. Then the web dialogs.
+
+● Starting part 1: rules, API and tests. I'll first isolate the work in a worktree branched from the current `main` HEAD.
+
+  Ran 1 shell command
+
+● Moved this work into a separate git worktree and branch
+
+● Now reading the code I'll build on: the rest of the domain and work item features, the endpoints, the test support and the existing handler tests.
+
+  Ran 2 shell commands
+
+● Next: the model configuration (concurrency token and unique keys), the money pipe for "Not imported", and the event apply in WorkflowRules.
+
+  Ran 2 shell commands
+
+● Now checking how existing rules return validation-only results, plus the item history label for Created events.
+
+  Ran 1 shell command
+
+● I have what I need. Writing the domain first: a `YearMonth` value and `CycleRules`.
+
+● Write(src\Rcm.Api\Domain\YearMonth.cs)
+
+● Write(src\Rcm.Api\Domain\CycleRules.cs)
+
+● Now the handlers. A small snapshot helper on the entity keeps the handlers short.
+
+● Update(src\Rcm.Api\Domain\ReviewCycle.cs)
+
+● Update(src\Rcm.Api\Domain\CycleRules.cs)
+
+● Write(src\Rcm.Api\Features\Cycles\OpenCycleHandler.cs)
+
+● Write(src\Rcm.Api\Features\Cycles\CloseCycleHandler.cs)
+
+● Write(src\Rcm.Api\Features\Cycles\CyclesEndpoints.cs)
+
+● Now the month actions on the overview response, then DI registration.
+
+  Ran 1 shell command
+
+● Build is clean. Now the tests. Checking the helpers and seed facts the existing tests use.
+
+  Ran 1 shell command
+
+● Seed has 11 unapproved items this month (9 Approved), matching docs/04. Adding a test-support hook to simulate a concurrent writer, then writing the rule and handler tests.
+
+  Ran 1 shell command
+
+● Write(tests\Rcm.Api.Tests\Domain\CycleRulesTests.cs)
+
+● Now the handler tests.
+
+● Write(tests\Rcm.Api.Tests\Features\CyclesTests.cs)
+
+  Ran 1 shell command
+
+● All 333 tests pass and the build has 0 warnings. One small docs line so the spec mentions the new overview field:
+
+● Update(docs\05-technical-design.md)
+
+● Quick end-to-end check against a running API in the worktree, on a spare port so it doesn't touch your instance.
+
+  Ran 3 shell commands
+
+● Supervisor close returns 403. Now reviewing the full diff against the repo rules before handing it to you.
+
+  Ran 4 shell commands
+
+● Part 1 is ready for your review. It's staged on branch `step4-months` in a worktree at `.claude/worktrees/step4-months`, branched from `ba34b96`, and not committed yet.
+
+  **Checks:** `dotnet build` has 0 warnings and 0 errors, and `dotnet test` passes 333 of 333. I also ran the API on port 5091, against its own database file that I deleted afterwards. In that run:
+  - The overview showed Close for the open month, and the close preview listed 11 items.
+  - A supervisor trying to close got 403.
+  - Closing as a manager returned 200.
+  - Opening with a due date in January was rejected with "The due date must fall inside December 2026."
+  - Opening December with a due date of Dec 15 worked. It created 20 items with no balances, so the UI will show "Not imported".
+
+  **What the API now does:**
+  - **Opening a month** creates the month after the latest one, with one Not started item per active facility. Each item goes to the facility's owner, links to last month's item and gets a "Created" history entry.
+  - **Closing a month** turns every item that isn't Approved into Incomplete, Submitted ones included. Each changed item gets a history entry and a new version, and the whole close is one transaction.
+  - **The overview** now carries `monthActions`, and docs/05 has one line describing it.
+
+  **Files (15):**
+  - New rules: `Domain/CycleRules.cs` and `Domain/YearMonth.cs`. `Domain/ReviewCycle.cs` gets a small `Snapshot()` helper.
+  - New handlers: `Features/Cycles/OpenCycleHandler.cs` and `CloseCycleHandler.cs`. `CyclesEndpoints.cs` adds the three routes.
+  - Changed: `GetCyclesHandler.cs` (month actions response), `GetOverviewHandler.cs`, `WorkItemReader.cs`, `WorkItemResponses.cs` and `Program.cs`.
+  - Tests: `Domain/CycleRulesTests.cs`, `Features/CyclesTests.cs`, and a `CreateContextRacing` helper in `SqliteTestDatabase.cs`.
+  - Docs: `docs/05-technical-design.md`, one line.
+
+  **Edge cases from docs/05 covered by tests:**
+  - Opening while a month is open is rejected.
+  - A month that already exists is rejected. The test simulates a second manager opening the same month at the same moment, which returns 409 and saves nothing.
+  - An inactive facility gets no item.
+  - Closing with Submitted items turns them Incomplete.
+  - After a close, unapproved facilities show Missed last month in the next month.
+  - If an item changes while the month is closing, the close returns 409 and saves nothing.
+
+  I checked the staged diff against the repo rules and found no dashes, banned words, TODOs, local paths or personal data.
+
+  **Proposed commit:** "Add month open and close with close preview"
+
+  The commit will land on `step4-months`, not on `main`. After I commit, bring it in from the main checkout with `git merge --ff-only step4-months`. `.claude/worktrees/` isn't in `.gitignore`, so it may show up as untracked in the main checkout.
+
+  Waiting for your go to commit, then I'll build the web dialogs.
+
+==============================================================================
+❯ Looks good. Commit it with your subject, then build the web dialogs
+
+  Ran 1 shell command
+
+● Committed as `538686e` on `step4-months`. Now the web dialogs. Reading the overview page, models and existing component patterns.
+
+  Ran 1 shell command
+
+● A few more details: `monthLabel`, the overview wireframe placement and the overview CSS.
+
+  Ran 1 shell command
+
+● Writing the models, the API calls and the two dialog components.
+
+  Ran 2 shell commands
+
+● Now the two dialog components, built on the native `<dialog>` element so focus and Esc work without a library.
+
+  Ran 1 shell command
+
+● Write(web\src\app\components\close-month-dialog\close-month-dialog.ts)
+
+● Write(web\src\app\components\close-month-dialog\close-month-dialog.html)
+
+● Write(web\src\app\components\close-month-dialog\close-month-dialog.css)
+
+● Write(web\src\app\components\open-month-dialog\open-month-dialog.ts)
+
+● Write(web\src\app\components\open-month-dialog\open-month-dialog.html)
+
+● Write(web\src\app\components\open-month-dialog\open-month-dialog.css)
+
+● Now the shared dialog styles, the Overview wiring, and refreshing the month picker after a month opens or closes.
+
+  Ran 1 shell command
+
+● The worktree has no `node_modules`. I'll install from the existing lockfile with `npm ci`, which adds no new packages.
+
+  Ran 1 shell command
+
+● The build is clean. Next I'll check the dialogs in a real browser. First, checking whether the default ports are free.
+
+  Ran 1 shell command
+
+● Ports are free. Starting the worktree API on 5080 and the web app on 4210.
+
+  Ran 1 shell command
+
+● Signing in as Morgan through the demo localStorage key, then opening Overview.
+
+  5 browser actions
+
+● The Actions section shows Close month for Morgan. Opening the dialog:
+
+  3 browser actions
+
+● The dialog matches docs/04. Checking that Esc cancels it, then running the close for real.
+
+  5 browser actions
+
+● Close worked: the page reloaded and now offers Open next month. Testing the open dialog with an out-of-month date first, then the default.
+
+  4 browser actions
+
+● The API's message shows inline. The console error is just the browser logging the 400. Now opening with Dec 15:
+
+  4 browser actions, ran 1 shell command
+
+● The working tree has only the intended changes. Staging them and scanning the diff against the repo rules.
+
+  Ran 2 shell commands
+
+● I've built the web dialogs for opening and closing a month, and they work end to end in the browser. They are staged on `step4-months` but not committed: your go covered part 1 only, so I'm waiting for a new one. Part 1 is committed as `538686e` "Add month open and close with close preview".
+
+  **Checks:**
+  - `ng build` is clean and the scan of the staged diff found nothing against the repo rules.
+  - In the browser, signed in as Morgan:
+    - The close dialog listed the 11 unapproved items, Esc cancelled it, and confirming closed November.
+    - A January due date showed "The due date must fall inside December 2026." inline. Dec 15 opened December, the month picker updated, 11 facilities showed Missed last month and balances showed "Not imported".
+  - Not checked in the browser: a supervisor never seeing the buttons. That case is covered by a handler test.
+  - The worktree had no `node_modules`, so I ran `npm ci` from the existing lockfile. No packages were added.
+
+  **What changed:**
+  - **Close month dialog** (`components/close-month-dialog/`): loads the close preview and lists facility, status and owner, as in docs/04. Errors from the API show inside the dialog.
+  - **Open month dialog** (`components/open-month-dialog/`): a due date field prefilled with the default the API sends. The API checks the date, so the dialog holds no rules.
+  - **Overview**: an Actions section shows Close month or Open next month only when `monthActions` allows it.
+    - After a close, the page reloads the same month.
+    - After an open, it moves to the new month in the URL.
+  - **Month picker**: reloads its list whenever the month shown changes, so a new or closed month appears without a page refresh.
+  - Supporting changes: the month types in `models/cycle.ts` and `models/work-item.ts`, the three calls in `services/cycles-api.ts`, and shared dialog styles in `styles.css`.
+
+  The dialogs use the browser's built-in `<dialog>` element, so focus handling, Esc and the backdrop come without a UI library.
+
+  **Proposed commit:** "Add close and open month dialogs to Overview"
+
+  Once both commits are in, bring step 4 into `main` from the main checkout with `git merge --ff-only step4-months`.
+
+  result: Step 4 web dialogs are built and checked in the browser, staged on branch step4-months and waiting for your go to commit; the API part is committed as 538686e.
+
+==============================================================================
+❯ Looks good. Commit it with your subject.
+
+  Ran 1 shell command
+
+● I committed the dialogs as `d1dc5b0` "Add close and open month dialogs to Overview", and the working tree is clean. Step 4 is now two commits on branch `step4-months`: the API is `538686e` and the dialogs are `d1dc5b0`. Nothing is pushed.
+
+  To bring step 4 into `main`, run this from the main checkout:
+
+  ```
+  git merge --ff-only step4-months
+  ```
+
+  You can then remove the worktree with `git worktree remove .claude/worktrees/step4-months`. Its `node_modules` folder is still in there and gets deleted with it.
+
+  Step 5, moving a facility to a new owner, is next whenever you want it.
+
+  result: Step 4 (opening and closing a month) is complete as commits 538686e (API) and d1dc5b0 (dialogs) on branch step4-months, ready to fast-forward into main.
+
+==============================================================================
+❯ Step 4 is merged into main. Next, step 5, the facility move from docs/02. Plan it first and wait for my go. Two parts again: rules, API and tests, then stop for review and commit. Then the move dialog.
+
+● I'll read the facility move spec and the existing facility code, then write the plan.
+
+  Ran 2 shell commands
+
+● The spec is clear. Checking the existing assignment entity, how the seed writes assignments, and how a Reassigned event already renders.
+
+  Ran 1 shell command
+
+● Here's the step 5 plan. Nothing is built yet.
+
+  ## Step 5 plan: moving a facility to a new owner
+
+  **Rules: `Domain/FacilityMoveRules.cs`** (pure, returns `Result`)
+  - `CanMove(role, facility, newOwner, reason)` rejects the move when:
+    - the caller is not a manager: 403;
+    - the facility is inactive: 400;
+    - the new owner is missing or inactive, is a manager, or already owns the facility: 400;
+    - the reason is empty or longer than 500 characters: 400. It is trimmed first.
+  - `ItemMoves(status)`: true for open statuses, false for Approved and Incomplete.
+    - The same check already decides what the month close turns Incomplete. I'll move it into one shared helper that both use, so the two lists can't drift apart.
+  - `EligibleOwners(org)`: active billers and supervisors, for the picker.
+  - `Apply(...)`:
+    - ends the current assignment and starts a new one;
+    - updates `Facility.OwnerId`;
+    - when an item moves: changes its owner, adds a `Reassigned` event with old owner, new owner and the reason, and bumps `Version`.
+    - The submitter, summary and status stay as they are.
+
+  **API: `Features/Facilities/`**
+  - `GET /api/facilities` (supervisor, manager):
+    - each facility with code, name, active flag and current owner;
+    - `eligibleOwners`, filled for managers only.
+  - `PUT /api/facilities/{id}/owner` with `newOwnerId`, `reason` and `moveOpenItem`:
+    - everything is saved together in one transaction;
+    - if no month is open or the item is final, only the ownership changes;
+    - if the item changes during the move, it returns 409 and saves nothing.
+  - `OverviewResponse` gets `canMoveFacilities`, true for managers. This drives the Move facility button on every row, as in docs/04.
+
+  **Tests**
+  - `FacilityMoveRulesTests` covers every rejection, `ItemMoves` for each status, `EligibleOwners`, and what `Apply` changes, for both item and no-item moves.
+  - `FacilitiesTests` handler tests on SQLite cover the edge cases in docs/05:
+    - With "also move open item" on: the item moves and its history shows the move with the reason.
+    - With it off: the old owner keeps this month's item, and the next month goes to the new owner. This uses the step 4 open handler.
+    - A Submitted item moves, keeps its submitter, and the new owner's reviewer now sees it as waiting for review. The old reviewer no longer does.
+    - Approved and Incomplete items never move.
+    - The ownership history ends one period and starts the next with the same timestamp.
+    - A non-manager gets 403, a missing facility gets 404, and an item changed during the move gets 409 with nothing saved.
+    - The facility list returns `eligibleOwners` for a manager and an empty list for a supervisor.
+
+  **Web** (part 2)
+  - `services/facilities-api.ts`.
+  - `components/move-facility-dialog`, laid out as in docs/04:
+    - "From Blake to [person]", the reason field, and "Also move this month's open item" ticked by default;
+    - the API's errors show inside the dialog.
+  - `item-table` gets an optional Move facility action. Overview turns it on when `canMoveFacilities` is true and reloads after a move.
+
+  **Choices I'd make where the docs are silent:**
+  1. An inactive facility can't be moved: 400.
+  2. Moving a facility to its current owner is rejected: 400.
+  3. If the new owner is away today with no cover, the move still goes through and the item shows Needs cover. Covers stay separate from moves.
+
+  **Branch:** step 4 is merged, so I'll start a new worktree from `main` for step 5.
+
+  Waiting for your go.
+
+  result: Step 5 (facility move) plan is ready for your go: rules, two facility endpoints, an Overview flag and tests first, then the move dialog. It includes three choices for cases docs/02 leaves open.
+
+==============================================================================
+❯ Go. Your three choices are fine, add them to docs/02 under Permanent move. Stay in this worktree and branch, no new worktree. Same two parts: rules, API and tests first, then stop for review and commit.
+
+● Starting part 1 in this worktree on `step4-months`. First, the org chart and reviewer code the move rules build on.
+
+  Ran 2 shell commands
+
+● The structure is clear. Checking the seed reporting lines and the status docs before writing the rules.
+
+  Ran 1 shell command
+
+● Writing the domain pieces: a shared final-status helper, the move rules, and the close rule switched to the shared helper.
+
+  Ran 1 shell command
+
+● Write(src\Rcm.Api\Domain\FacilityMoveRules.cs)
+
+● Now the Facilities feature: list and move handlers plus endpoints.
+
+● Write(src\Rcm.Api\Features\Facilities\FacilityHandlers.cs)
+
+● Write(src\Rcm.Api\Features\Facilities\FacilitiesEndpoints.cs)
+
+● Wiring DI, the endpoint map, the overview flag and the docs.
+
+  Ran 1 shell command
+
+● Fixing the docs wording to state the cost, then building with the solution file.
+
+● Update(docs\02-workflow.md)
+
+  Ran 1 shell command
+
+● Clean build. Now the tests. Checking what `TestOrg` offers for rule tests.
+
+  Ran 1 shell command
+
+● Write(tests\Rcm.Api.Tests\Domain\FacilityMoveRulesTests.cs)
+
+● The test helper has a bug: the new owner defaults to null, so the reason tests would fail on the owner check rather than the reason. Fixing it so the default is Dana, and pinning the reason message.
+
+  Ran 1 shell command
+
+● Now the handler tests.
+
+● Write(tests\Rcm.Api.Tests\Features\FacilitiesTests.cs)
+
+  Ran 1 shell command
+
+● All 374 tests pass and the build has 0 warnings. A quick check against the running API on the spare port:
+
+  Ran 3 shell commands
+
+● Part 1 of step 5 (moving a facility to a new owner) is staged on `step4-months` in this worktree, as you asked. It isn't committed yet.
+
+  **Checks:**
+  - `dotnet build` has 0 warnings and `dotnet test` passes 374 of 374, with 41 new tests.
+  - Against a live API, the facility list returned 9 people who can own facilities, and a supervisor's move got 403.
+  - A manager moved F07 from Blake to Alex with no `moveOpenItem` in the body. It defaulted to on, so the item moved, and its newest history entry is "Reassigned" with the reason.
+  - The staged diff passed my check against the repo rules.
+
+  **What the API now does:**
+  - **Rules** (`FacilityMoveRules`): a manager moves an active facility to an active biller or supervisor other than the current owner, with a reason of up to 500 characters.
+    - The current ownership period ends and a new one starts at the same timestamp, and the facility's owner changes.
+    - When the item moves, it gets the new owner and a "Reassigned" event with the reason. Status and submitter stay. The reviewer follows the new owner, because it's never stored.
+  - **Shared final check:** a new `IsFinal()` treats Approved and Incomplete as final. Both the month close and the facility move use it, so the two can't disagree about which items are left alone.
+  - **`GET /api/facilities`**: facilities with their current owner, plus `eligibleOwners` for managers only.
+  - **`PUT /api/facilities/{id}/owner`**: everything is saved in one transaction. If the item changes during the move, it returns 409 and saves nothing.
+  - **Overview**: gets `canMoveFacilities`, true for managers.
+
+  **Tests cover every docs/05 move case:**
+  - With "move open item" off, the old owner finishes this month and the next month goes to the new owner. The test closes November and opens December to prove it.
+  - A Submitted item moves and keeps its submitter. I moved F04 from Alex to Dana: Sam no longer sees it as waiting for review, and Jordan does.
+  - Approved and Incomplete items never move.
+  - Also covered: Dana is away with no cover, so the moved item shows Needs cover. A change during the move returns 409 and saves nothing. The ownership history ends one period exactly when the next starts.
+
+  **Docs:**
+  - docs/02, under Permanent move: your three choices. Inactive facilities can't move, a move to the current owner is rejected, and a move ignores absences, with what that costs.
+  - docs/05 mentions `canMoveFacilities`.
+
+  **Files (12):**
+  - New: `Domain/FacilityMoveRules.cs`, `Features/Facilities/FacilityHandlers.cs` and `FacilitiesEndpoints.cs`, plus the tests `Domain/FacilityMoveRulesTests.cs` and `Features/FacilitiesTests.cs`.
+  - Changed: `Domain/WorkItemStatus.cs`, `Domain/CycleRules.cs`, `GetOverviewHandler.cs`, `WorkItemResponses.cs`, `Program.cs`, `docs/02-workflow.md` and `docs/05-technical-design.md`.
+
+  **Proposed commit:** "Add permanent facility move with assignment history"
+
+  Waiting for your go to commit, then I'll build the move dialog.
+
+  result: Step 5 rules, API and tests are staged on step4-months (374 tests pass, 0 warnings) and waiting for your go to commit; the move dialog comes next.
+
+==============================================================================
+❯ Looks good. One addition before the commit: two managers moving the same facility at the same moment can leave two open assignments when no item moves. Add a unique index on FacilityAssignment.FacilityId for rows with no EndedAt, return 409 on a clash and test it, like the one open month index. Then commit with your subject and build the move dialog.
+
+● I'll add the filtered unique index, map the clash to 409 and race-test it like the open month index. First, how the existing index is tested:
+
+  Ran 1 shell command
+
+● The open month index is only tested through its race test, so I'll do the same here. Adding the index and the 409 mapping:
+
+  Ran 1 shell command
+
+● 375 pass. To make sure the new test really depends on the index, I'll remove the index for one run and expect that test to fail:
+
+  Ran 1 shell command
+
+● Without the index the race test fails. With it restored, all 375 pass. Staging, scanning and committing:
+
+  Ran 2 shell commands
+
+● Committed as `2f4c3cd`. Now the move dialog. Reading the item table component:
+
+  Ran 1 shell command
+
+● Writing the facility model, the API client, the dialog, and the Move action on the item table.
+
+  Ran 1 shell command
+
+● The shell guard refused the multi-file heredoc, so I'll write the files individually.
+
+● Write(web\src\app\models\facility.ts)
+
+● Write(web\src\app\services\facilities-api.ts)
+
+● Write(web\src\app\components\move-facility-dialog\move-facility-dialog.ts)
+
+● Write(web\src\app\components\move-facility-dialog\move-facility-dialog.html)
+
+● Write(web\src\app\components\move-facility-dialog\move-facility-dialog.css)
+
+● I'll drop the dialog's own "choose an owner" check and send the choice as-is, so the API's message is the only rule. Then the item table and Overview wiring.
+
+  Ran 1 shell command
+
+● The build is clean. Checking the dialog in the browser: the API on 5080 and the web app on 4210 if both are free.
+
+  Ran 2 shell commands, 4 browser actions
+
+● The dialog opens with "From Blake to", the eligible owners, and the checkbox ticked. Submitting without an owner first, to check the API's error shows inline:
+
+  4 browser actions
+
+● The layout matches docs/04, and the earlier API error is still shown. Submitting the real move:
+
+  2 browser actions
+
+● The row now shows Alex. Checking the item history shows the move:
+
+  2 browser actions
+
+● The history shows "Moved from Blake to Alex: Workload balance", which is smoke test step 5. Last, checking that a supervisor sees no Move buttons:
+
+  4 browser actions, ran 1 shell command
+
+● Sam sees 12 rows and no Move buttons. Everything is cleaned up. Staging the dialog work and scanning the diff:
+
+  Ran 1 shell command
+
+● I added the index and committed the API work as `2f4c3cd` "Add permanent facility move with assignment history". The move dialog is built and checked in the browser, staged on `step4-months` but not committed. Your go covered the API commit, so the dialog commit waits for a new one.
+
+  **The index you asked for:**
+  - A unique index on `FacilityAssignment.FacilityId` for rows with no `EndedAt`. A clash returns 409 with "Someone else moved this facility at the same time. Reload and try again."
+  - The new test has Quinn's move save first and then Morgan's move of the same facility, neither moving the item. Morgan gets 409, and there's still exactly one current owner.
+  - With the index removed, that test fails. With it back, all 375 tests pass and the build has 0 warnings.
+  - **To do on your side:** an existing `rcm.db` won't get the new index, because the database is only created when it doesn't exist. Use "Reset demo data" or delete `src/Rcm.Api/rcm.db` once.
+
+  **Move dialog:**
+  - **Browser check as Morgan:**
+    - Every row in All items has a Move facility button.
+    - The F07 dialog reads "From Blake to [person]", with a reason field and "Also move this month's open item" ticked.
+    - Submitting with no person showed the API's message inline: "The new owner must be an active biller or supervisor."
+    - Moving F07 to Alex closed the dialog and updated the row. The item history shows "Moved from Blake to Alex: Workload balance", which is smoke test step 5.
+  - **As Sam:** no Move buttons.
+  - **No client-side checks:** the dialog sends the choice as it is, and only the API decides what's allowed.
+  - **Current owner:** taken from `GET /api/facilities`, not from the row. This month's item can still belong to the old owner after a move without the item.
+
+  **Files (11):**
+  - New: `components/move-facility-dialog/` (3 files), `models/facility.ts` and `services/facilities-api.ts`.
+  - Changed: `item-table` (an optional Move facility action), `models/work-item.ts`, and the Overview page.
+
+  **Proposed commit:** "Add move facility dialog to Overview"
+
+  Once it's committed, step 5 is complete on `step4-months`. Bring it into `main` with `git merge --ff-only step4-months`.
+
+  result: Facility move API with the single-current-owner index is committed as 2f4c3cd; the move dialog is built, checked in the browser and staged on step4-months, waiting for your go to commit.
+
+==============================================================================
+❯ Looks good. Commit it with your subject
+
+  Ran 1 shell command
+
+● I committed the move dialog as `da66b44` "Add move facility dialog to Overview". The working tree is clean and nothing is pushed.
+
+  Step 5 (moving a facility to a new owner) is now complete on `step4-months`: the API is `2f4c3cd` and the dialog is `da66b44`. To bring it into `main`, run this from the main checkout:
+
+  ```
+  git merge --ff-only step4-months
+  ```
+
+  After merging, use "Reset demo data" once or delete `src/Rcm.Api/rcm.db`. An existing database won't get the new single-current-owner index otherwise.
+
+  That finishes build steps 1 to 5. Step 6, reopen and then single-item reassignment, is only for if time is left.
+
+  result: Step 5 (facility move) is complete as commits 2f4c3cd (API) and da66b44 (dialog) on step4-months, ready to fast-forward into main.
