@@ -58,7 +58,13 @@ export class OverviewPage {
   constructor() {
     effect(() => {
       const cycleId = cycleIdFrom(this.cycle());
-      untracked(() => void this.load(cycleId));
+      untracked(() => {
+        // Filters belong to one month. Its statuses and owners may not exist in the next.
+        this.statusFilter.set(null);
+        this.ownerFilter.set(null);
+        this.flagFilter.set(null);
+        void this.load(cycleId);
+      });
     });
   }
 

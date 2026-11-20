@@ -126,27 +126,27 @@
         <label>
           Status
           <select #status (change)="filterStatus(status.value)">
-            <option value="">All</option>
+            <option value="" [selected]="statusFilter() === null">All</option>
             @for (value of statuses(); track value) {
-              <option [value]="value">{{ statusLabels[value] }}</option>
+              <option [value]="value" [selected]="value === statusFilter()">{{ statusLabels[value] }}</option>
             }
           </select>
         </label>
         <label>
           Owner
           <select #owner (change)="filterOwner(owner.value)">
-            <option value="">All</option>
+            <option value="" [selected]="ownerFilter() === null">All</option>
             @for (person of owners(); track person.id) {
-              <option [value]="person.id">{{ person.name }}</option>
+              <option [value]="person.id" [selected]="person.id === ownerFilter()">{{ person.name }}</option>
             }
           </select>
         </label>
         <label>
           Flag
           <select #flag (change)="filterFlag(flag.value)">
-            <option value="">All</option>
+            <option value="" [selected]="flagFilter() === null">All</option>
             @for (value of allFlags; track value) {
-              <option [value]="value">{{ flagLabels[value] }}</option>
+              <option [value]="value" [selected]="value === flagFilter()">{{ flagLabels[value] }}</option>
             }
           </select>
         </label>

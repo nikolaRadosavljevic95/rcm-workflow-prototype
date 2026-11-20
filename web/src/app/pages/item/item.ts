@@ -43,15 +43,16 @@ export class ItemPage {
     this.location.back();
   }
 
-  protected async act(request: ActionRequest): Promise<void> {
+  // An arrow function so the action panel can call it with this page bound.
+  protected readonly act = async (request: ActionRequest): Promise<boolean> => {
     const current = this.detail();
     if (current === null) {
-      return;
+      return false;
     }
-    await this.run(current.item.id, () =>
+    return this.run(current.item.id, () =>
       this.api.transition(current.item.id, request.action, request.text, current.item.version),
     );
-  }
+  };
 
   protected async addComment(): Promise<void> {
     const current = this.detail();

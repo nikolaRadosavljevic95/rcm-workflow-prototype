@@ -16,6 +16,7 @@ public class WorkItemsTests
     private static readonly CurrentUser Jordan = new(SeedData.Jordan, "Jordan", Role.Supervisor);
     private static readonly CurrentUser Casey = new(SeedData.Casey, "Casey", Role.Supervisor);
     private static readonly CurrentUser Alex = new(SeedData.Alex, "Alex", Role.Biller);
+    private static readonly CurrentUser Blake = new(SeedData.Blake, "Blake", Role.Biller);
 
     [Fact]
     public async Task GetMyWork_Biller_GroupsOwnAndCoveredItemsByArOver90()
@@ -279,6 +280,25 @@ public class WorkItemsTests
     }
 
     [Fact]
+    public async Task Transition_OwnerAndCoverActTogether_SecondReturnsConflict()
+    {
+        await using var database = await SqliteTestDatabase.CreateSeededAsync(SqliteTestDatabase.MidMonth);
+        var (blakesItem, version) = await WithContext(database, db => OpenItemAsync(db, "F07"));
+        Result<WorkItemDetail>? owner = null;
+
+        // Blake saves between Alex's read and Alex's write.
+        await using var db = database.CreateContextRacing(async other =>
+            owner = await Transition(other, database, Blake, blakesItem, WorkflowAction.Block, "Waiting on a statement", version));
+        var cover = await Transition(db, database, Alex, blakesItem, WorkflowAction.Start, null, version);
+
+        Assert.True(owner?.IsSuccess);
+        Assert.Equal(ErrorKind.Conflict, cover.Error?.Kind);
+        await using var check = database.CreateContext();
+        var item = await check.WorkItems.SingleAsync(w => w.Id == blakesItem);
+        Assert.Equal((WorkItemStatus.Blocked, version + 1), (item.Status, item.Version));
+    }
+
+    [Fact]
     public async Task SaveChanges_ItemChangedSinceRead_ThrowsConcurrencyException()
     {
         await using var database = await SqliteTestDatabase.CreateSeededAsync(SqliteTestDatabase.MidMonth);
@@ -361,6 +381,18 @@ public class WorkItemsTests
         var latest = detail.Events[0];
         Assert.Equal((WorkItemEventType.Commented, "Sam", "Called the facility."), (latest.Type, latest.Actor.Name, latest.Text));
         Assert.Null(latest.ToStatus);
+    }
+
+    [Fact]
+    public async Task AddComment_CoverOfOwner_RecordsOnBehalfOf()
+    {
+        await using var database = await SqliteTestDatabase.CreateSeededAsync(SqliteTestDatabase.MidMonth);
+        await using var db = database.CreateContext();
+        var blakesItem = await OpenItemIdAsync(db, "F07");
+
+        var detail = (await Comment(db, database, Alex, blakesItem, "Asked for the aging report.")).Value;
+
+        Assert.Equal(("Alex", "Blake"), (detail.Events[0].Actor.Name, detail.Events[0].OnBehalfOf?.Name));
     }
 
     [Fact]

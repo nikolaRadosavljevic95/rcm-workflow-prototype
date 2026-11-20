@@ -97,6 +97,7 @@ stateDiagram-v2
 - **My work**: items whose owner is me or someone I cover today.
 - **Overview** (supervisors and managers): a supervisor sees items owned by themselves, by their direct reports, by anyone they cover today and by that person's direct reports. A manager sees every item.
 - **Waiting for my review**: Submitted items where I am the reviewer or cover the reviewer, and I am not the submitter. A manager's right to approve any item does not put it in this list.
+- Known limit: when the submitter is also the reviewer, as when a supervisor submits while covering their own biller, the item is in nobody's Waiting for my review. A manager finds it under All items, or under Needs attention once it is overdue.
 
 ## Flags
 Computed when read. They are not statuses, because an item can be overdue in any status.
@@ -136,6 +137,7 @@ Computed when read. They are not statuses, because an item can be overdue in any
 ## Opening and closing a month
 - Open: manager only. No other month may be open. It must be the month after the latest one. The due date must fall inside the month.
 - Opening creates one Not started item per active facility, owned by the facility's owner and linked to last month's item.
+- Known limit: opening reads each facility's owner without a lock. If another manager moves a facility at that moment, the new item can go to the old owner. Two managers rarely act at once, so v1 accepts it.
 - Close: manager only. The preview lists every item not Approved, Submitted ones included.
 - Closing sets those items to Incomplete with one event each, in one transaction. The month becomes read-only.
 - Decision: close unfinished items as Incomplete instead of carrying them over. The cost is late completion: work finished after the close does not count for that month. Carrying over would let an item span months and blur monthly reporting.

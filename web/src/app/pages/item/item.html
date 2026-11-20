@@ -48,7 +48,7 @@
     <p class="empty">This month is closed. The item is read-only.</p>
   } @else if (d.item.allowedActions.length > 0) {
     <section class="actions">
-      <app-action-panel [actions]="d.item.allowedActions" [busy]="busy()" (act)="act($event)" />
+      <app-action-panel [actions]="d.item.allowedActions" [busy]="busy()" [send]="act" />
     </section>
   }
 

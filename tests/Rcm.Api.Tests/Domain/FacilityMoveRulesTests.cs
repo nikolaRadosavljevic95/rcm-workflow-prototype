@@ -9,6 +9,15 @@ public class FacilityMoveRulesTests
     private static readonly DateTime Now = new(2026, 11, 19, 15, 0, 0, DateTimeKind.Utc);
     private static readonly OrgPerson DanaPerson = Chart.Find(Dana)!;
 
+    [Theory]
+    [InlineData(Role.Manager, CycleStatus.Open, true)]
+    [InlineData(Role.Manager, CycleStatus.Closed, false)]
+    [InlineData(Role.Supervisor, CycleStatus.Open, false)]
+    public void ShowOnRows_ByRoleAndMonth_OnlyManagerInOpenMonth(Role role, CycleStatus month, bool expected)
+    {
+        Assert.Equal(expected, FacilityMoveRules.ShowOnRows(role, month));
+    }
+
     [Fact]
     public void CanMove_ManagerToActiveBiller_TrimsReason()
     {

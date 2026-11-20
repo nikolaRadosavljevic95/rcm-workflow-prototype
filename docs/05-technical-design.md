@@ -89,7 +89,7 @@ web/src/app/
 - SQLite file `rcm.db` in the API project folder. The path comes from the content root, not the working directory.
 - On start the API runs `EnsureCreated` and seeds an empty database. To start over, use "Reset demo data" on the sign-in page, or stop the API and delete the file.
 - `global.json` pins the .NET 10 SDK and allows newer feature bands.
-- Commands are in [CLAUDE.md](../CLAUDE.md).
+- Commands are in the [README](../README.md#run).
 - Decision: `EnsureCreated` instead of migrations. The prototype has no migration history; production generates SQL Server migrations from the same model.
 
 ## Seed data

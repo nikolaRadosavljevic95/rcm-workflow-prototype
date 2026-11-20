@@ -1,12 +1,20 @@
-@if (pending(); as action) {
+@if (prompt(); as entryPrompt) {
   <div class="prompt">
     <label>
-      {{ prompt() }}
-      <textarea #entry rows="3" [value]="text()" (input)="text.set(entry.value)"></textarea>
+      {{ entryPrompt.label }}
+      <textarea
+        #entry
+        rows="3"
+        [attr.maxlength]="entryPrompt.maxLength"
+        [value]="text()"
+        (input)="text.set(entry.value)"
+      ></textarea>
     </label>
     <p class="warning">Do not enter resident names or account numbers.</p>
     <div class="buttons">
-      <button type="button" [disabled]="busy() || text().trim() === ''" (click)="confirm()">{{ labels[action] }}</button>
+      <button type="button" [disabled]="busy() || text().trim() === ''" (click)="confirm()">
+        {{ labels[entryPrompt.action] }}
+      </button>
       <button type="button" class="secondary" [disabled]="busy()" (click)="cancel()">Cancel</button>
     </div>
   </div>

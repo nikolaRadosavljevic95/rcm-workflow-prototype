@@ -286,6 +286,17 @@ public class FacilitiesTests
         Assert.False((await handler.HandleAsync(Sam, null, CancellationToken.None)).Value.CanMoveFacilities);
     }
 
+    [Fact]
+    public async Task Overview_ManagerOnClosedMonth_CannotMoveFacilities()
+    {
+        await using var database = await SqliteTestDatabase.CreateSeededAsync(SqliteTestDatabase.MidMonth);
+        await using var db = database.CreateContext();
+        var handler = new GetOverviewHandler(new WorkItemReader(db), new RequestContextLoader(db, database.Calendar));
+        var closedId = await db.ReviewCycles.Where(c => c.Status == CycleStatus.Closed).Select(c => c.Id).SingleAsync();
+
+        Assert.False((await handler.HandleAsync(Morgan, closedId, CancellationToken.None)).Value.CanMoveFacilities);
+    }
+
     private static Task<Result<MoveFacilityResponse>> Move(
         AppDbContext db, SqliteTestDatabase database, CurrentUser user, int facilityId, int newOwnerId, bool moveOpenItem = true) =>
         new MoveFacilityHandler(db, database.Calendar)

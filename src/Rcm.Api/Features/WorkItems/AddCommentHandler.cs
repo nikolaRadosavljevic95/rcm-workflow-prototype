@@ -33,6 +33,7 @@ public sealed class AddCommentHandler(
             WorkItemId = item.Id,
             Type = WorkItemEventType.Commented,
             ActorId = context.Actor.UserId,
+            OnBehalfOfId = CommentRules.OnBehalfOf(context.Actor, item.AssigneeId, context.Org),
             Text = text.Value,
             CreatedAt = calendar.UtcNow,
         });

@@ -77,7 +77,7 @@ Progress   Approved 9  Submitted 3  Returned 1  In progress 3  Blocked 2  Not st
 Teams      Supervisor  Items  Approved  Submitted  Open  Overdue
            Sam         8      ...
 Actions    [Close month] while a month is open, [Open next month] when none is
-All items  every row has [Move facility]
+All items  every row has [Move facility] (open month)
 ```
 - Needs attention: Blocked, Returned, Overdue, Needs cover or Missed last month. Sorted by AR over 90.
 
@@ -108,6 +108,7 @@ Absences                                                   [New absence]
 Form: person, from, to, cover (optional), note.   [Save]  [Delete]
 Errors show inline, for example "Alex is away on Nov 20".
 ```
+- Known limit: the form's default start is the browser's date, not the business date. Late in the evening west of New York that can be yesterday, and saving then fails with "An absence cannot start before today".
 
 ### Manager dialogs
 ```

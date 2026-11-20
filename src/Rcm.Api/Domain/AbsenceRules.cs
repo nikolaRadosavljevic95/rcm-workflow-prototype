@@ -61,7 +61,7 @@ public static class AbsenceRules
             return Error.Invalid($"{person.Name} is already away from {Day(clash.StartDate)} to {Day(clash.EndDate)}.");
         }
 
-        if (change.CoverUserId is { } coverId && CoverRule(person, coverId, change, org, others) is { } coverError)
+        if (change.CoverUserId is { } coverId && CoverRule(person, coverId, change, today, org, others) is { } coverError)
         {
             return coverError;
         }
@@ -121,7 +121,7 @@ public static class AbsenceRules
     }
 
     private static Error? CoverRule(
-        OrgPerson person, int coverId, AbsenceChange change, OrgChart org, IReadOnlyList<AbsenceSnapshot> others)
+        OrgPerson person, int coverId, AbsenceChange change, DateOnly today, OrgChart org, IReadOnlyList<AbsenceSnapshot> others)
     {
         if (coverId == person.Id)
         {
@@ -145,9 +145,11 @@ public static class AbsenceRules
             return Error.Invalid($"{cover.Name} cannot cover {person.Name}. A cover must be a {RoleName(person.Role)} or higher.");
         }
 
+        // Days already past do not count: a cover only grants rights from today on.
+        var from = change.StartDate > today ? change.StartDate : today;
         var firstDayAway = others
-            .Where(a => a.UserId == coverId && a.Overlaps(change.StartDate, change.EndDate))
-            .Select(a => a.StartDate > change.StartDate ? a.StartDate : change.StartDate)
+            .Where(a => a.UserId == coverId && a.Overlaps(from, change.EndDate))
+            .Select(a => a.StartDate > from ? a.StartDate : from)
             .Order()
             .Cast<DateOnly?>()
             .FirstOrDefault();

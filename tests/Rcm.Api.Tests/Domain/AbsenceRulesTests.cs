@@ -108,6 +108,24 @@ public class AbsenceRulesTests
     }
 
     [Fact]
+    public void Validate_StartedAbsenceCoverWasAwayOnPastDay_Succeeds()
+    {
+        var alexAwayYesterday = new AbsenceSnapshot(2, Alex, Today.AddDays(-1), Today.AddDays(-1), null);
+        var longer = Change(Blake, -2, 6, cover: Alex);
+
+        Assert.True(Validate(longer, existing: BlakeAway, absences: [BlakeAway, alexAwayYesterday]).IsSuccess);
+    }
+
+    [Fact]
+    public void Validate_StartedAbsenceCoverAwayToday_ReturnsInvalid()
+    {
+        var alexAwayToday = new AbsenceSnapshot(2, Alex, Today.AddDays(-1), Today, null);
+        var longer = Change(Blake, -2, 6, cover: Alex);
+
+        Assert.Equal("Alex is away on Nov 19.", Validate(longer, existing: BlakeAway, absences: [BlakeAway, alexAwayToday]).Error?.Message);
+    }
+
+    [Fact]
     public void Validate_StartedAbsenceStartMoved_ReturnsInvalid()
     {
         var moved = Change(Blake, -1, 4, cover: Alex);

@@ -12,6 +12,9 @@ public static class FacilityMoveRules
 
     public static bool MayMove(Role role) => role == Role.Manager;
 
+    // Rows of a closed month would move the open month's item, not the one on the row.
+    public static bool ShowOnRows(Role role, CycleStatus monthStatus) => MayMove(role) && monthStatus == CycleStatus.Open;
+
     // Managers review and never own facilities.
     public static bool CanOwn(OrgPerson person) =>
         person.IsActive && person.Role is Role.Biller or Role.Supervisor;

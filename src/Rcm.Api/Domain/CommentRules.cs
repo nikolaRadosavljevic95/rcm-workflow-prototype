@@ -23,4 +23,22 @@ public static class CommentRules
 
         return trimmed;
     }
+
+    // A comment is for someone else only when the commenter sees the item through a cover:
+    // they cover the owner, or they cover the supervisor the owner reports to.
+    public static int? OnBehalfOf(ActorContext actor, int ownerId, OrgChart org)
+    {
+        var supervisorId = org.ManagerOf(ownerId);
+        if (actor.Role == Role.Manager || actor.UserId == ownerId || supervisorId == actor.UserId)
+        {
+            return null;
+        }
+
+        if (actor.CoversToday.Contains(ownerId))
+        {
+            return ownerId;
+        }
+
+        return supervisorId is { } id && actor.CoversToday.Contains(id) ? id : null;
+    }
 }
